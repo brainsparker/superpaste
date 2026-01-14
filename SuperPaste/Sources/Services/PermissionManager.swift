@@ -51,8 +51,13 @@ final class PermissionManager: ObservableObject {
         pollingTimer = nil
     }
 
-    /// Open System Settings to the Screen Recording privacy pane.
+    /// Request Screen Recording permission and open System Settings.
     func openScreenRecordingSettings() {
+        // First, request permission - this will show the system dialog if not yet prompted
+        // After the first prompt, this just returns the current status
+        _ = CGRequestScreenCaptureAccess()
+
+        // Also open System Settings so user can toggle the permission
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else {
             return
         }
@@ -61,53 +66,11 @@ final class PermissionManager: ObservableObject {
 
     // MARK: - Private
 
-    /// Check if Screen Recording permission is granted by attempting to capture
-    /// a window from a different application.
+    /// Check if Screen Recording permission is granted.
+    /// Uses CGPreflightScreenCaptureAccess on macOS 10.15+
     private func checkScreenRecordingPermission() -> Bool {
-        // Get the window list
-        guard let windowList = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else {
-            return false
-        }
-
-        let currentPID = ProcessInfo.processInfo.processIdentifier
-
-        // Find a window from a different application
-        guard let testWindow = windowList.first(where: { info in
-            guard let ownerPID = info[kCGWindowOwnerPID as String] as? Int32 else {
-                return false
-            }
-            // Must be from a different process and at normal layer
-            let layer = info[kCGWindowLayer as String] as? Int ?? 0
-            return ownerPID != currentPID && layer == 0
-        }) else {
-            // No suitable window found (rare case - maybe only SuperPaste is running)
-            // Assume permission is granted if we can't test
-            return true
-        }
-
-        guard let windowID = testWindow[kCGWindowNumber as String] as? CGWindowID else {
-            return false
-        }
-
-        // Attempt to capture the window
-        // If permission is denied, the image will be nil or blank
-        guard let image = CGWindowListCreateImage(
-            .null,
-            .optionIncludingWindow,
-            windowID,
-            [.boundsIgnoreFraming]
-        ) else {
-            return false
-        }
-
-        // Check if the image has any content
-        // When permission is denied, macOS returns a valid CGImage but it's empty/transparent
-        // We check the image dimensions and assume permission is granted if image exists
-        // Note: More sophisticated checks could analyze pixel data, but this is usually sufficient
-        return image.width > 0 && image.height > 0
+        // Use the modern API (macOS 10.15+)
+        return CGPreflightScreenCaptureAccess()
     }
 
     deinit {
