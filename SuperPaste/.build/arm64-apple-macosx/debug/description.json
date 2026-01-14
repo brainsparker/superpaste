@@ -171,15 +171,19 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ContextService.swift"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/HotkeyService.swift"
         },
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/LLMService.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/PermissionManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ScreenCaptureService.swift"
         },
         {
           "kind" : "file",
@@ -195,6 +199,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/KeychainHelper.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDContentView.swift"
         },
         {
@@ -207,7 +215,19 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/APIKeyEntryView.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/MainWindowView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/PermissionRequestView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/ReadyView.swift"
         },
         {
           "kind" : "file",
@@ -216,6 +236,10 @@
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/HowItWorksPage.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/PermissionsView.swift"
         },
         {
           "kind" : "file",
@@ -251,18 +275,24 @@
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDPosition.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDState.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ClipboardService.swift.o",
-        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HotkeyService.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/LLMService.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/SuperPasteApp.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIConfig.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDPhrases.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDContentView.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDManager.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDWindow.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/MainWindowView.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/AboutPage.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HowItWorksPage.swift.o",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ResourcesPage.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/SettingsPage.swift.o",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/SettingsView.swift.o"
@@ -327,15 +357,19 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService.swift.o"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HotkeyService.swift.o"
         },
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/LLMService.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService.swift.o"
         },
         {
           "kind" : "file",
@@ -351,6 +385,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDContentView.swift.o"
         },
         {
@@ -363,7 +401,19 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/MainWindowView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView.swift.o"
         },
         {
           "kind" : "file",
@@ -372,6 +422,10 @@
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HowItWorksPage.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView.swift.o"
         },
         {
           "kind" : "file",
@@ -397,18 +451,24 @@
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Models/HUDPosition.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Models/HUDState.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ClipboardService.swift",
-        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ContextService.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/HotkeyService.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/LLMService.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/PermissionManager.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ScreenCaptureService.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/SuperPasteApp.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/APIConfig.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/HUDPhrases.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/KeychainHelper.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDContentView.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDManager.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDWindow.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/APIKeyEntryView.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/MainWindowView.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/PermissionRequestView.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/ReadyView.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/AboutPage.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/HowItWorksPage.swift",
+        "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/PermissionsView.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/ResourcesPage.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/SettingsPage.swift",
         "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/SettingsView.swift"
@@ -484,18 +544,24 @@
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Models/HUDPosition.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Models/HUDState.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ClipboardService.swift",
-      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ContextService.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/HotkeyService.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/LLMService.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/PermissionManager.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ScreenCaptureService.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/SuperPasteApp.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/APIConfig.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/HUDPhrases.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/KeychainHelper.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDContentView.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDManager.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDWindow.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/APIKeyEntryView.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/MainWindowView.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/PermissionRequestView.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/ReadyView.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/AboutPage.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/HowItWorksPage.swift",
+      "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/PermissionsView.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/ResourcesPage.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/SettingsPage.swift",
       "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/SettingsView.swift",
@@ -631,15 +697,19 @@
         },
         {
           "kind" : "file",
-          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ContextService.swift"
-        },
-        {
-          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/HotkeyService.swift"
         },
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/LLMService.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/PermissionManager.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ScreenCaptureService.swift"
         },
         {
           "kind" : "file",
@@ -655,6 +725,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/KeychainHelper.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDContentView.swift"
         },
         {
@@ -667,7 +741,19 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/APIKeyEntryView.swift"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/MainWindowView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/PermissionRequestView.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/ReadyView.swift"
         },
         {
           "kind" : "file",
@@ -676,6 +762,10 @@
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/HowItWorksPage.swift"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/PermissionsView.swift"
         },
         {
           "kind" : "file",
@@ -729,6 +819,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/AboutPage.swift.o"
         },
         {
@@ -742,10 +836,6 @@
         {
           "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContentView.swift.o"
-        },
-        {
-          "kind" : "file",
-          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService.swift.o"
         },
         {
           "kind" : "file",
@@ -781,6 +871,10 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/LLMService.swift.o"
         },
         {
@@ -789,7 +883,27 @@
         },
         {
           "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView.swift.o"
+        },
+        {
+          "kind" : "file",
           "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ResourcesPage.swift.o"
+        },
+        {
+          "kind" : "file",
+          "name" : "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService.swift.o"
         },
         {
           "kind" : "file",

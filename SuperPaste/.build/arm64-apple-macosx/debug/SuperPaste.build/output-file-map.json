@@ -32,12 +32,6 @@
     "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ClipboardService~partial.swiftmodule",
     "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ClipboardService.swiftdeps"
   },
-  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ContextService.swift": {
-    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService.d",
-    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService.swift.o",
-    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService~partial.swiftmodule",
-    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ContextService.swiftdeps"
-  },
   "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/HotkeyService.swift": {
     "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HotkeyService.d",
     "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HotkeyService.swift.o",
@@ -49,6 +43,18 @@
     "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/LLMService.swift.o",
     "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/LLMService~partial.swiftmodule",
     "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/LLMService.swiftdeps"
+  },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/PermissionManager.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionManager.swiftdeps"
+  },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Services/ScreenCaptureService.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ScreenCaptureService.swiftdeps"
   },
   "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/SuperPasteApp.swift": {
     "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/SuperPasteApp.d",
@@ -68,6 +74,12 @@
     "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDPhrases~partial.swiftmodule",
     "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDPhrases.swiftdeps"
   },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Utilities/KeychainHelper.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/KeychainHelper.swiftdeps"
+  },
   "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/HUD/HUDContentView.swift": {
     "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDContentView.d",
     "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDContentView.swift.o",
@@ -86,11 +98,29 @@
     "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDWindow~partial.swiftmodule",
     "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HUDWindow.swiftdeps"
   },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/APIKeyEntryView.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/APIKeyEntryView.swiftdeps"
+  },
   "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/MainWindowView.swift": {
     "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/MainWindowView.d",
     "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/MainWindowView.swift.o",
     "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/MainWindowView~partial.swiftmodule",
     "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/MainWindowView.swiftdeps"
+  },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/PermissionRequestView.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionRequestView.swiftdeps"
+  },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/MainWindow/ReadyView.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ReadyView.swiftdeps"
   },
   "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/AboutPage.swift": {
     "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/AboutPage.d",
@@ -103,6 +133,12 @@
     "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HowItWorksPage.swift.o",
     "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HowItWorksPage~partial.swiftmodule",
     "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/HowItWorksPage.swiftdeps"
+  },
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/PermissionsView.swift": {
+    "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView.d",
+    "object": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView.swift.o",
+    "swiftmodule": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView~partial.swiftmodule",
+    "swift-dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/PermissionsView.swiftdeps"
   },
   "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/Sources/Views/Settings/ResourcesPage.swift": {
     "dependencies": "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/debug/SuperPaste.build/ResourcesPage.d",

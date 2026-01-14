@@ -4,6 +4,7 @@ import SwiftUI
 enum SettingsTab: String, CaseIterable, Identifiable {
     case about = "About"
     case howItWorks = "How It Works"
+    case permissions = "Permissions"
     case settings = "Settings"
     case resources = "Resources"
 
@@ -13,6 +14,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .about: return "info.circle"
         case .howItWorks: return "sparkles"
+        case .permissions: return "lock.shield"
         case .settings: return "gear"
         case .resources: return "arrow.up.right"
         }
@@ -21,6 +23,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
 /// Main settings window container with sidebar navigation
 struct SettingsView: View {
+    @EnvironmentObject var appState: AppState
     @State private var selectedTab: SettingsTab = .about
 
     var body: some View {
@@ -39,12 +42,15 @@ struct SettingsView: View {
                 AboutPage()
             case .howItWorks:
                 HowItWorksPage()
+            case .permissions:
+                PermissionsView()
             case .settings:
                 SettingsPage()
+                    .environmentObject(appState)
             case .resources:
                 ResourcesPage()
             }
         }
-        .frame(width: 600, height: 450)
+        .frame(width: 650, height: 500)
     }
 }

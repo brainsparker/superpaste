@@ -6,7 +6,7 @@
     <key>com.apple.security.app-sandbox</key>
     <true/>
 
-    <!-- Network access for You.com API -->
+    <!-- Network access for Anthropic Claude API -->
     <key>com.apple.security.network.client</key>
     <true/>
 </dict>

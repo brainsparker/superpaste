@@ -1,24 +1,36 @@
 import Foundation
 
-/// API configuration with embedded key.
-/// The key is lightly obfuscated to prevent casual inspection.
+/// API configuration for Claude Vision.
+/// Uses BYOK (Bring Your Own Key) model - user provides their own Anthropic API key.
 enum APIConfig {
     // MARK: - Anthropic API Configuration
 
     static let baseURL = "https://api.anthropic.com/v1/messages"
-    static let model = "claude-3-haiku-20240307"  // Fast and cost-effective
+    static let model = "claude-sonnet-4-20250514"  // Vision-capable model
     static let anthropicVersion = "2023-06-01"
 
-    // MARK: - API Key
-    // Base64 encoded for light obfuscation
-    private static let obfuscatedKey = "c2stYW50LWFwaTAzLWliQl8tem5zR0xHS1ZWOVk3NUN4dUlLd1JGRmFZZG5fYUNXSXVoVE5tdTM4WEctYllXMHk3VzVwQnZKZ3MtRFc3MWsySUJ3LXVJT0RyQ2FEbmFzSHB3LXpjS3ppQUFB"
+    // MARK: - API Key (BYOK)
 
-    static var apiKey: String {
-        guard let data = Data(base64Encoded: obfuscatedKey),
-              let key = String(data: data, encoding: .utf8) else {
-            return obfuscatedKey  // Return as-is if not base64
-        }
-        return key
+    /// Get the API key from Keychain.
+    /// Returns nil if no key is configured.
+    static var apiKey: String? {
+        return KeychainHelper.retrieve()
+    }
+
+    /// Check if an API key is configured.
+    static var hasAPIKey: Bool {
+        guard let key = apiKey else { return false }
+        return !key.isEmpty
+    }
+
+    /// Save an API key to Keychain.
+    static func saveAPIKey(_ key: String) throws {
+        try KeychainHelper.save(key: key)
+    }
+
+    /// Clear the API key from Keychain.
+    static func clearAPIKey() throws {
+        try KeychainHelper.delete()
     }
 
     // MARK: - Request Configuration
@@ -29,29 +41,29 @@ enum APIConfig {
     // MARK: - System Prompt
 
     static let systemPrompt = """
-        You are an AI agent operating through an API.
+        You are SuperPaste, an AI assistant that generates contextually appropriate text based on what the user is looking at.
 
-        ## Input
-        - You will receive text extracted from the user's clipboard and window context.
-        - The text may be incomplete, messy, or lack clear structure.
-        - Assume the content was intentionally provided and is relevant to the user's goal.
+        The user pressed a hotkey while viewing their screen. You will receive a screenshot showing what they're looking at. Your job is to figure out what they need and write it.
 
-        ## Your Task
-        - Use all available information to infer the user's intent.
-        - Determine what response would be most useful if pasted directly into the user's current workflow.
-        - Make reasonable assumptions when details are missing, but do not invent specific facts.
-        - Prefer clarity, usefulness, and correctness over verbosity.
+        ## Common scenarios
+        - Email or message visible → Write a reply
+        - Question visible → Write an answer
+        - Form visible → Suggest what to fill in
+        - Document visible → Continue or improve the writing
+        - Code visible → Write the next logical code
+        - Error message visible → Explain or suggest a fix
 
-        ## Output Rules
-        - Respond with only the final answer.
-        - Do not explain your reasoning.
-        - Do not include disclaimers, metadata, or references to the system behavior.
-        - Write the response exactly as it should appear when pasted from the clipboard.
-        - Match the tone and format implied by the content (for example: email, message, notes, summary, form response).
+        ## Rules
+        1. Output ONLY the text to paste—no explanations, no meta-commentary, no markdown formatting unless the context requires it
+        2. Match the tone (casual for Slack, professional for email, technical for code)
+        3. Be concise unless the context suggests a longer response is needed
+        4. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."
 
-        ## Quality Bar
-        - The output should feel intentional, polished, and ready to use.
-        - If multiple interpretations are possible, choose the one that is most likely and most helpful in context.
-        - Keep language clear and direct.
+        ## Output format
+        Raw text, ready to paste. Nothing else.
         """
+
+    // MARK: - Anthropic Console URL
+
+    static let anthropicConsoleURL = URL(string: "https://console.anthropic.com/settings/keys")!
 }

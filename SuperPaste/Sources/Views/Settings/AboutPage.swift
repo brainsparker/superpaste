@@ -7,7 +7,7 @@ struct AboutPage: View {
             Spacer()
 
             // App icon
-            Image(systemName: "doc.on.clipboard.fill")
+            Image(systemName: "eye.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
 
@@ -22,7 +22,7 @@ struct AboutPage: View {
             }
 
             // Powered by
-            Text("Powered by You.com")
+            Text("Powered by Claude AI")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
@@ -30,7 +30,7 @@ struct AboutPage: View {
                 .frame(width: 200)
 
             // Description
-            Text("SuperPaste helps you write faster by generating contextual responses with a single hotkey.")
+            Text("SuperPaste sees your screen and writes your response. Press a hotkey, paste the result.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

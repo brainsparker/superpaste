@@ -33,10 +33,10 @@ struct ResourcesPage: View {
                     )
 
                     ResourceLink(
-                        icon: "globe",
-                        title: "You.com",
-                        description: "Powered by You.com AI",
-                        url: "https://you.com"
+                        icon: "key.fill",
+                        title: "Get Anthropic API Key",
+                        description: "Sign up at anthropic.com",
+                        url: "https://console.anthropic.com/settings/keys"
                     )
                 }
             }

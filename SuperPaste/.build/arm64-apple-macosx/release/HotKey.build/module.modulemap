@@ -1,0 +1,4 @@
+module HotKey {
+    header "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/arm64-apple-macosx/release/HotKey.build/HotKey-Swift.h"
+    requires objc
+}

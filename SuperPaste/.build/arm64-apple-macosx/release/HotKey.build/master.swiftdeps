@@ -1,0 +1,12 @@
+version: "Apple Swift version 6.0.3 (swiftlang-6.0.3.1.10 clang-1600.0.30.1)"
+options: "3af92ff129171ec13f15ed99c17f157c7412b83e55c06f392d134337528af874"
+build_start_time: [1768428792, 398900000]
+build_end_time: [1768428841, 246264000]
+inputs:
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/checkouts/HotKey/Sources/HotKey/HotKey.swift": [1768428498, 184821165]
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/checkouts/HotKey/Sources/HotKey/HotKeysController.swift": [1768428498, 184990875]
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/checkouts/HotKey/Sources/HotKey/Key.swift": [1768428498, 185126626]
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/checkouts/HotKey/Sources/HotKey/KeyCombo+System.swift": [1768428498, 185545254]
+  "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/checkouts/HotKey/Sources/HotKey/KeyCombo.swift": [1768428498, 185671630]
+  ? "/Users/briansparker/Documents/GitHub/superpaste/SuperPaste/.build/checkouts/HotKey/Sources/HotKey/NSEventModifierFlags+HotKey.swift"
+  : [1768428498, 185807506]

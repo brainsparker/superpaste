@@ -26,6 +26,7 @@ struct SuperPasteApp: App {
         // Settings window (⌘,)
         Settings {
             SettingsView()
+                .environmentObject(appState)
         }
     }
 

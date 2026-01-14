@@ -31,6 +31,10 @@
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.productivity</string>
 
+    <!-- App icon -->
+    <key>CFBundleIconName</key>
+    <string>AppIcon</string>
+
     <!-- High resolution capable -->
     <key>NSHighResolutionCapable</key>
     <true/>
@@ -38,5 +42,9 @@
     <!-- Principal class for SwiftUI apps -->
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
+
+    <!-- Screen Recording usage description -->
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>SuperPaste needs to capture screenshots to understand what you're looking at and generate helpful responses.</string>
 </dict>
 </plist>

@@ -10,15 +10,15 @@ struct HowItWorksPage: View {
                     .font(.title2.bold())
 
                 // Description
-                Text("SuperPaste generates contextual responses based on what you're doing. No permissions required.")
+                Text("SuperPaste sees your screen and writes for you. No need to copy text or explain context.")
                     .foregroundColor(.secondary)
 
                 // Steps
                 VStack(alignment: .leading, spacing: 16) {
-                    StepRow(number: 1, title: "Copy some text for context", description: "Optional - gives SuperPaste more to work with")
-                    StepRow(number: 2, title: "Press ⌥S anywhere", description: "Works in any app, anytime")
-                    StepRow(number: 3, title: "Wait for the magic", description: "SuperPaste analyzes your context")
-                    StepRow(number: 4, title: "Press ⌘V to paste", description: "The response is on your clipboard")
+                    StepRow(number: 1, title: "Look at what you want to respond to", description: "Email, Slack message, document, etc.")
+                    StepRow(number: 2, title: "Press \u{2325}S anywhere", description: "SuperPaste captures your screen")
+                    StepRow(number: 3, title: "Wait for the magic", description: "AI analyzes what you're looking at")
+                    StepRow(number: 4, title: "Press \u{2318}V to paste", description: "Your response is ready!")
                 }
                 .padding()
                 .background(
@@ -31,15 +31,20 @@ struct HowItWorksPage: View {
                     Text("What SuperPaste sees:")
                         .font(.headline)
 
-                    BulletPoint(text: "Your clipboard contents")
-                    BulletPoint(text: "The active window title")
-                    BulletPoint(text: "The app you're using")
-
-                    Text("That's it! No screen recording, no keylogging.")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .padding(.top, 4)
+                    BulletPoint(text: "A screenshot of your active window")
+                    BulletPoint(text: "The app name and window title")
                 }
+
+                // What SuperPaste does NOT do
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What SuperPaste does NOT do:")
+                        .font(.headline)
+
+                    BulletPoint(text: "Record video or continuous screenshots")
+                    BulletPoint(text: "Store screenshots after processing")
+                    BulletPoint(text: "Access files, passwords, or other private data")
+                }
+                .padding(.top, 8)
             }
             .padding(24)
         }
