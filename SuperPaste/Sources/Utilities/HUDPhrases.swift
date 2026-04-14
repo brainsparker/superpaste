@@ -1,61 +1,35 @@
 import Foundation
 
 /// Phrase pools for each HUD stage.
-/// Provides rotating, emoji-prefixed phrases for delight.
 enum HUDPhrases {
 
     // MARK: - Phrase Pools
 
     static let gathering: [String] = [
-        "📋 Gathering context...",
-        "👀 Reading the room...",
-        "🔍 Scanning the scene...",
-        "📖 Taking it all in...",
-        "🎯 Locking on...",
-        "📡 Picking up signals...",
-        "🧲 Pulling it together...",
-        "👁️ Sizing things up...",
-        "🌐 Getting the lay of the land...",
-        "🎬 Setting the stage..."
+        "Reading the room.",
+        "Getting the picture.",
+        "Taking in the context.",
+        "Looking around.",
+        "Scanning the scene."
     ]
 
     static let thinking: [String] = [
-        "🧠 Thinking...",
-        "✨ Brewing magic...",
-        "⚡ Neurons firing...",
-        "🔮 Consulting the oracle...",
-        "💭 Pondering...",
-        "🎨 Crafting words...",
-        "⚙️ Crunching...",
-        "🌀 Processing...",
-        "💫 Conjuring...",
-        "🧪 Mixing ingredients...",
-        "🎹 Composing...",
-        "🔥 Cooking...",
-        "🚀 Revving up...",
-        "🎯 Dialing it in...",
-        "🌟 Working some magic..."
+        "Writing...",
+        "Thinking this through.",
+        "Working on it.",
+        "One moment.",
+        "Almost there."
     ]
 
     static let ready: [String] = [
-        "✨ Ready to Super Paste!",
-        "🎉 Nailed it!",
-        "💫 Your words await!",
-        "🚀 Locked and loaded!",
-        "✅ Good to go!",
-        "🎯 Bullseye!",
-        "⚡ Ready when you are!",
-        "🌟 Fresh out the oven!",
-        "💎 Polished and ready!",
-        "🎁 Special delivery!"
+        "Done."
     ]
 
     static let error: [String] = [
-        "😅 Oops, hit a snag",
-        "🔌 Connection hiccup",
-        "🤔 Something went sideways",
-        "🛠️ Technical difficulties",
-        "📡 Lost the signal"
+        "Something went wrong.",
+        "Couldn't connect.",
+        "Check your API key.",
+        "Try again."
     ]
 
     // MARK: - Random Selection with No Repeat

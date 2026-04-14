@@ -8,21 +8,13 @@ struct HUDContentView: View {
         VStack(spacing: 12) {
             // Phrase text
             Text(hudState.currentPhrase)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 15, weight: .medium))
                 .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .animation(.easeInOut(duration: 0.3), value: hudState.currentPhrase)
 
             // Progress bar
             ProgressBar(progress: hudState.progress, stage: hudState.stage)
-
-            // "Press Cmd+V to paste" instruction (only in ready stage)
-            if hudState.stage == .ready {
-                Text("Press ⌘V to paste")
-                    .font(.system(size: 12))
-                    .foregroundColor(.white.opacity(0.7))
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-            }
 
             // Error message
             if case .error(let message) = hudState.stage {

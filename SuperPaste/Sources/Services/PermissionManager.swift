@@ -2,8 +2,8 @@ import AppKit
 import CoreGraphics
 import Combine
 
-/// Manages Screen Recording permission checking and status.
-/// Screen Recording permission is REQUIRED for SuperPaste to function.
+/// Manages Screen Recording and Accessibility permission checking and status.
+/// Both permissions are REQUIRED for SuperPaste to function.
 @MainActor
 final class PermissionManager: ObservableObject {
     static let shared = PermissionManager()
@@ -11,6 +11,7 @@ final class PermissionManager: ObservableObject {
     // MARK: - Published State
 
     @Published private(set) var screenRecordingEnabled: Bool = false
+    @Published private(set) var accessibilityEnabled: Bool = false
 
     // MARK: - Private
 
@@ -21,6 +22,7 @@ final class PermissionManager: ObservableObject {
 
     private init() {
         checkPermission()
+        checkAccessibilityPermission()
     }
 
     // MARK: - Public API
@@ -29,8 +31,17 @@ final class PermissionManager: ObservableObject {
     /// Updates the `screenRecordingEnabled` property.
     @discardableResult
     func checkPermission() -> Bool {
-        let enabled = checkScreenRecordingPermission()
+        let enabled = CGPreflightScreenCaptureAccess()
         screenRecordingEnabled = enabled
+        return enabled
+    }
+
+    /// Check the current Accessibility permission status.
+    /// Updates the `accessibilityEnabled` property.
+    @discardableResult
+    func checkAccessibilityPermission() -> Bool {
+        let enabled = AXIsProcessTrusted()
+        accessibilityEnabled = enabled
         return enabled
     }
 
@@ -41,6 +52,7 @@ final class PermissionManager: ObservableObject {
         pollingTimer = Timer.scheduledTimer(withTimeInterval: pollingInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.checkPermission()
+                self?.checkAccessibilityPermission()
             }
         }
     }
@@ -53,24 +65,21 @@ final class PermissionManager: ObservableObject {
 
     /// Request Screen Recording permission and open System Settings.
     func openScreenRecordingSettings() {
-        // First, request permission - this will show the system dialog if not yet prompted
-        // After the first prompt, this just returns the current status
         _ = CGRequestScreenCaptureAccess()
-
-        // Also open System Settings so user can toggle the permission
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else {
             return
         }
         NSWorkspace.shared.open(url)
     }
 
-    // MARK: - Private
-
-    /// Check if Screen Recording permission is granted.
-    /// Uses CGPreflightScreenCaptureAccess on macOS 10.15+
-    private func checkScreenRecordingPermission() -> Bool {
-        // Use the modern API (macOS 10.15+)
-        return CGPreflightScreenCaptureAccess()
+    /// Request Accessibility permission (shows system dialog) and open System Settings.
+    func openAccessibilitySettings() {
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true]
+        _ = AXIsProcessTrustedWithOptions(options)
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
+            return
+        }
+        NSWorkspace.shared.open(url)
     }
 
     deinit {

@@ -84,9 +84,9 @@ final class HUDState: ObservableObject {
             NSSound.beep()
         }
 
-        // Auto-dismiss after 5 seconds
+        // Auto-dismiss after 1.5 seconds (auto-paste fires immediately, brief confirmation is enough)
         autoDismissTask = Task {
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(1.5))
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 dismiss()

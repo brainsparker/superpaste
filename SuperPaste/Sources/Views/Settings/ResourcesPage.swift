@@ -32,12 +32,6 @@ struct ResourcesPage: View {
                         url: "https://github.com/superpaste/superpaste/issues"
                     )
 
-                    ResourceLink(
-                        icon: "key.fill",
-                        title: "Get Anthropic API Key",
-                        description: "Sign up at anthropic.com",
-                        url: "https://console.anthropic.com/settings/keys"
-                    )
                 }
             }
             .padding(24)

@@ -11,8 +11,8 @@ struct MainWindowView: View {
                 PermissionRequestView()
                     .environmentObject(appState)
 
-            case .apiKeyRequired:
-                APIKeyEntryView()
+            case .accessibilityRequired:
+                AccessibilityRequestView()
                     .environmentObject(appState)
 
             case .ready:

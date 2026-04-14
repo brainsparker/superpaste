@@ -1,37 +1,15 @@
 import Foundation
 
-/// API configuration for Claude Vision.
-/// Uses BYOK (Bring Your Own Key) model - user provides their own Anthropic API key.
+/// API configuration for SuperPaste.
 enum APIConfig {
-    // MARK: - Anthropic API Configuration
+    // MARK: - Endpoint
 
-    static let baseURL = "https://api.anthropic.com/v1/messages"
-    static let model = "claude-sonnet-4-20250514"  // Vision-capable model
-    static let anthropicVersion = "2023-06-01"
-
-    // MARK: - API Key (BYOK)
-
-    /// Get the API key from Keychain.
-    /// Returns nil if no key is configured.
-    static var apiKey: String? {
-        return KeychainHelper.retrieve()
-    }
-
-    /// Check if an API key is configured.
-    static var hasAPIKey: Bool {
-        guard let key = apiKey else { return false }
-        return !key.isEmpty
-    }
-
-    /// Save an API key to Keychain.
-    static func saveAPIKey(_ key: String) throws {
-        try KeychainHelper.save(key: key)
-    }
-
-    /// Clear the API key from Keychain.
-    static func clearAPIKey() throws {
-        try KeychainHelper.delete()
-    }
+    /// SuperPaste proxy endpoint — Anthropic auth lives server-side.
+    #if DEBUG
+    static let baseURL = "http://localhost:8787/v1/messages"
+    #else
+    static let baseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/messages"
+    #endif
 
     // MARK: - Request Configuration
 
@@ -62,8 +40,4 @@ enum APIConfig {
         ## Output format
         Raw text, ready to paste. Nothing else.
         """
-
-    // MARK: - Anthropic Console URL
-
-    static let anthropicConsoleURL = URL(string: "https://console.anthropic.com/settings/keys")!
 }

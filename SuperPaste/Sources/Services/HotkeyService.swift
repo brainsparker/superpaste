@@ -15,8 +15,8 @@ final class HotkeyService: ObservableObject {
 
     private var hotKey: HotKey?
 
-    // Default: Option + S
-    @Published var keyCombo: KeyCombo = KeyCombo(key: .s, modifiers: .option) {
+    // Default: Option + V
+    @Published var keyCombo: KeyCombo = KeyCombo(key: .v, modifiers: .option) {
         didSet {
             if isRegistered {
                 unregister()

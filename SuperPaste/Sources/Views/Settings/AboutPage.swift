@@ -7,7 +7,7 @@ struct AboutPage: View {
             Spacer()
 
             // App icon
-            Image(systemName: "eye.fill")
+            Image(systemName: "wand.and.stars")
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
 
@@ -30,7 +30,7 @@ struct AboutPage: View {
                 .frame(width: 200)
 
             // Description
-            Text("SuperPaste sees your screen and writes your response. Press a hotkey, paste the result.")
+            Text("Press \u{2325}V. SuperPaste reads your screen and types the response — no copying, no prompting, no second step.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

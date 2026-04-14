@@ -7,168 +7,127 @@ struct PermissionsView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Title
                 Text("Permissions")
                     .font(.title2.bold())
 
-                // Description
-                Text("SuperPaste needs Screen Recording permission to see your screen and generate helpful responses.")
+                Text("SuperPaste requires two permissions to work. Both are granted once during setup.")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
 
-                // Required permissions section
-                requiredPermissionsSection
+                permissionCard(
+                    icon: "rectangle.inset.filled.and.cursorarrow",
+                    title: "Screen Recording",
+                    description: "SuperPaste captures your active window when you press \u{2325}V. Screenshots are only taken on-demand and never stored.",
+                    isEnabled: permissionManager.screenRecordingEnabled,
+                    onOpen: { permissionManager.openScreenRecordingSettings() },
+                    onRecheck: { permissionManager.checkPermission() }
+                )
 
-                // Optional permissions section
-                optionalPermissionsSection
+                permissionCard(
+                    icon: "figure.arms.open",
+                    title: "Accessibility",
+                    description: "SuperPaste types into your focused field automatically. It only sends a paste keystroke (\u{2318}V) — it does not read text from other apps.",
+                    isEnabled: permissionManager.accessibilityEnabled,
+                    onOpen: { permissionManager.openAccessibilitySettings() },
+                    onRecheck: { permissionManager.checkAccessibilityPermission() }
+                )
             }
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
             permissionManager.checkPermission()
+            permissionManager.checkAccessibilityPermission()
         }
     }
 
-    // MARK: - Required Permissions
+    // MARK: - Permission Card
 
-    private var requiredPermissionsSection: some View {
+    @discardableResult
+    private func permissionCard(
+        icon: String,
+        title: String,
+        description: String,
+        isEnabled: Bool,
+        onOpen: @escaping () -> Void,
+        onRecheck: @escaping () -> Void
+    ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Required Permissions")
-                .font(.headline)
+            HStack {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundColor(.blue)
 
-            // Screen Recording permission card
-            VStack(alignment: .leading, spacing: 12) {
-                // Header row
-                HStack {
-                    Image(systemName: "rectangle.inset.filled.and.cursorarrow")
-                        .font(.title2)
-                        .foregroundColor(.blue)
+                Text(title)
+                    .font(.headline)
 
-                    Text("Screen Recording")
-                        .font(.headline)
+                Spacer()
 
-                    Spacer()
-
-                    // Status indicator
-                    if permissionManager.screenRecordingEnabled {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.title3)
-                    } else {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                            .font(.title3)
-                    }
+                if isEnabled {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.title3)
+                } else {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                        .font(.title3)
                 }
+            }
 
-                // Description
-                Text("SuperPaste needs screen recording to capture screenshots when you press \u{2325}S. Screenshots are only taken when you trigger the hotkey.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            Text(description)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
 
-                // Status and actions
-                if permissionManager.screenRecordingEnabled {
+            if isEnabled {
+                HStack(spacing: 4) {
+                    Text("Status:")
+                        .foregroundColor(.secondary)
+                    Text("Enabled")
+                        .foregroundColor(.green)
+                        .fontWeight(.medium)
+                }
+                .font(.caption)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 4) {
                         Text("Status:")
                             .foregroundColor(.secondary)
-                        Text("Enabled")
-                            .foregroundColor(.green)
+                        Text("Not enabled")
+                            .foregroundColor(.orange)
                             .fontWeight(.medium)
                     }
                     .font(.caption)
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        HStack(spacing: 4) {
-                            Text("Status:")
-                                .foregroundColor(.secondary)
-                            Text("Not enabled")
-                                .foregroundColor(.orange)
-                                .fontWeight(.medium)
-                        }
-                        .font(.caption)
 
-                        HStack(spacing: 12) {
-                            Button {
-                                permissionManager.openScreenRecordingSettings()
-                            } label: {
-                                Text("Open System Settings")
-                            }
-                            .buttonStyle(.borderedProminent)
-
-                            Button {
-                                permissionManager.checkPermission()
-                            } label: {
-                                Text("Check Again")
-                            }
-                            .buttonStyle(.bordered)
+                    HStack(spacing: 12) {
+                        Button {
+                            onOpen()
+                        } label: {
+                            Text("Open System Settings")
                         }
+                        .buttonStyle(.borderedProminent)
+
+                        Button {
+                            onRecheck()
+                        } label: {
+                            Text("Check Again")
+                        }
+                        .buttonStyle(.bordered)
                     }
                 }
             }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(
-                        permissionManager.screenRecordingEnabled
-                            ? Color(nsColor: .separatorColor)
-                            : Color.orange.opacity(0.5),
-                        lineWidth: 1
-                    )
-            )
         }
-    }
-
-    // MARK: - Optional Permissions
-
-    private var optionalPermissionsSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Optional Permissions")
-                .font(.headline)
-
-            // Notifications (placeholder for future)
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Image(systemName: "bell.fill")
-                        .font(.title2)
-                        .foregroundColor(.secondary)
-
-                    Text("Notifications")
-                        .font(.headline)
-
-                    Spacer()
-
-                    Circle()
-                        .fill(Color(nsColor: .separatorColor))
-                        .frame(width: 20, height: 20)
-                }
-
-                Text("Get notified about tips and updates. This is optional.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-
-                Button {
-                    // TODO: Request notification permission
-                } label: {
-                    Text("Enable")
-                }
-                .buttonStyle(.bordered)
-                .disabled(true)  // Not implemented in v1.0
-            }
-            .padding(16)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color(nsColor: .controlBackgroundColor))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-            )
-        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(
+                    isEnabled ? Color(nsColor: .separatorColor) : Color.orange.opacity(0.5),
+                    lineWidth: 1
+                )
+        )
     }
 }

@@ -1,7 +1,7 @@
 import SwiftUI
 
-/// View displayed when Screen Recording permission is required.
-struct PermissionRequestView: View {
+/// View displayed when Accessibility permission is required for auto-paste.
+struct AccessibilityRequestView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
@@ -45,15 +45,15 @@ struct PermissionRequestView: View {
     private var permissionCard: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(spacing: 12) {
-                Image(systemName: "rectangle.inset.filled.and.cursorarrow")
+                Image(systemName: "hand.tap")
                     .font(.title2)
                     .foregroundColor(.blue)
 
-                Text("Screen Recording")
+                Text("One Step, Not Two")
                     .font(.headline)
             }
 
-            Text("SuperPaste takes a single snapshot of your active window the moment you press \u{2325}V — so it knows exactly what you're looking at without you having to copy text, switch apps, or explain anything.")
+            Text("Without this, you'd press \u{2325}V and then manually paste with \u{2318}V. With it, the text appears in your field the instant it's ready — nothing else to do.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -63,18 +63,18 @@ struct PermissionRequestView: View {
                     .foregroundColor(.green)
                     .font(.caption)
 
-                Text("No recording, no continuous monitoring. One screenshot, on demand, sent to Claude and immediately discarded.")
+                Text("SuperPaste only sends a \u{2318}V keystroke. It cannot read text, passwords, or anything else from other apps.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             .padding(.top, 4)
 
             Button {
-                appState.openScreenRecordingSettings()
+                appState.openAccessibilitySettings()
             } label: {
                 HStack {
                     Image(systemName: "gear")
-                    Text("Enable Screen Recording")
+                    Text("Enable Auto-Paste")
                 }
                 .frame(maxWidth: .infinity)
             }
@@ -96,7 +96,7 @@ struct PermissionRequestView: View {
 
     private var footerSection: some View {
         VStack(spacing: 12) {
-            Text("After clicking, find SuperPaste in System Settings and toggle it on. Then come back here.")
+            Text("After clicking, find SuperPaste under System Settings \u{203A} Privacy & Security \u{203A} Accessibility and toggle it on.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

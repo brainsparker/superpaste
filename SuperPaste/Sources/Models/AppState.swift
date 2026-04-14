@@ -1,10 +1,11 @@
 import SwiftUI
 import Combine
+import CoreGraphics
 
 /// Main window state machine
 enum MainWindowState: Equatable {
     case permissionRequired
-    case apiKeyRequired
+    case accessibilityRequired
     case ready
 }
 
@@ -22,8 +23,8 @@ final class AppState: ObservableObject {
     /// Whether Screen Recording permission is granted
     @Published private(set) var screenRecordingEnabled = false
 
-    /// Whether an API key is configured
-    @Published private(set) var apiKeyConfigured = false
+    /// Whether Accessibility permission is granted
+    @Published private(set) var accessibilityEnabled = false
 
     // MARK: - Services
 
@@ -68,7 +69,6 @@ final class AppState: ObservableObject {
     }
 
     private func setupPermissionObserver() {
-        // Observe permission changes
         permissionManager.$screenRecordingEnabled
             .receive(on: DispatchQueue.main)
             .sink { [weak self] enabled in
@@ -76,28 +76,29 @@ final class AppState: ObservableObject {
                 self?.updateMainWindowState()
             }
             .store(in: &cancellables)
+
+        permissionManager.$accessibilityEnabled
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                self?.accessibilityEnabled = enabled
+                self?.updateMainWindowState()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - State Management
 
-    /// Update all state values
     func updateState() {
         screenRecordingEnabled = permissionManager.checkPermission()
-        apiKeyConfigured = APIConfig.hasAPIKey
-        updateMainWindowState()
-    }
-
-    /// Refresh API key status (call after saving/clearing key)
-    func refreshAPIKeyStatus() {
-        apiKeyConfigured = APIConfig.hasAPIKey
+        accessibilityEnabled = permissionManager.checkAccessibilityPermission()
         updateMainWindowState()
     }
 
     private func updateMainWindowState() {
         if !screenRecordingEnabled {
             mainWindowState = .permissionRequired
-        } else if !apiKeyConfigured {
-            mainWindowState = .apiKeyRequired
+        } else if !accessibilityEnabled {
+            mainWindowState = .accessibilityRequired
         } else {
             mainWindowState = .ready
         }
@@ -106,14 +107,13 @@ final class AppState: ObservableObject {
     // MARK: - Hotkey Handler
 
     private func handleHotkeyTrigger() {
-        // Check if we're ready to process
         guard screenRecordingEnabled else {
             hudState.showError("Screen Recording permission required")
             return
         }
 
-        guard apiKeyConfigured else {
-            hudState.showError("API key not configured")
+        guard accessibilityEnabled else {
+            hudState.showError("Accessibility permission required")
             return
         }
 
@@ -123,7 +123,6 @@ final class AppState: ObservableObject {
             hudState.dismiss()
         }
 
-        // Start the processing pipeline
         processingTask = Task {
             await processPipeline()
         }
@@ -135,17 +134,14 @@ final class AppState: ObservableObject {
         isProcessing = true
         lastError = nil
 
-        // Stage 1: Gathering context (capturing screenshot)
         hudState.startGathering()
 
-        // Small delay to show gathering stage
         try? await Task.sleep(for: .milliseconds(100))
         guard !Task.isCancelled else {
             isProcessing = false
             return
         }
 
-        // Capture screenshot
         guard let context = screenCaptureService.captureWithFallback() else {
             lastError = "Failed to capture screenshot"
             hudState.showError("Couldn't capture screen")
@@ -153,11 +149,9 @@ final class AppState: ObservableObject {
             return
         }
 
-        // Stage 2: Thinking (calling LLM)
         hudState.startThinking()
 
         do {
-            // Call LLM API with screenshot
             let response = try await llmService.process(context: context)
 
             guard !Task.isCancelled else {
@@ -165,10 +159,12 @@ final class AppState: ObservableObject {
                 return
             }
 
-            // Write response to clipboard
             clipboardService.write(response)
 
-            // Stage 3: Ready
+            try? await Task.sleep(for: .milliseconds(50))
+            guard !Task.isCancelled else { isProcessing = false; return }
+            simulatePaste()
+
             hudState.showReady()
 
         } catch let error as LLMService.LLMError {
@@ -176,7 +172,6 @@ final class AppState: ObservableObject {
                 isProcessing = false
                 return
             }
-
             lastError = error.errorDescription
             hudState.showError(error.userFriendlyMessage)
 
@@ -185,7 +180,6 @@ final class AppState: ObservableObject {
                 isProcessing = false
                 return
             }
-
             lastError = error.localizedDescription
             hudState.showError("Something went wrong")
         }
@@ -193,21 +187,34 @@ final class AppState: ObservableObject {
         isProcessing = false
     }
 
+    // MARK: - Auto-Paste
+
+    private func simulatePaste() {
+        let src = CGEventSource(stateID: .hidSystemState)
+        let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true)
+        let vUp   = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false)
+        vDown?.flags = .maskCommand
+        vUp?.flags   = .maskCommand
+        vDown?.post(tap: .cghidEventTap)
+        vUp?.post(tap: .cghidEventTap)
+    }
+
     // MARK: - Manual Actions
 
-    /// Manually dismiss the HUD
     func dismissHUD() {
         processingTask?.cancel()
         hudState.dismiss()
         isProcessing = false
     }
 
-    /// Open Screen Recording settings
     func openScreenRecordingSettings() {
         permissionManager.openScreenRecordingSettings()
     }
 
-    /// Re-check permission status
+    func openAccessibilitySettings() {
+        permissionManager.openAccessibilitySettings()
+    }
+
     func recheckPermission() {
         updateState()
     }

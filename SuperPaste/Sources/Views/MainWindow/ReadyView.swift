@@ -45,14 +45,14 @@ struct ReadyView: View {
 
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Image(systemName: "eye.fill")
+            Image(systemName: "wand.and.stars")
                 .font(.system(size: 48))
                 .foregroundStyle(.blue)
 
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("See your screen. Write your response.")
+            Text("Press \u{2325}V. Text appears.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -91,9 +91,9 @@ struct ReadyView: View {
             Text("How it works:")
                 .font(.headline)
 
-            InstructionRow(number: 1, text: "Look at what you want to respond to")
-            InstructionRow(number: 2, text: "Press \u{2325}S anywhere")
-            InstructionRow(number: 3, text: "Press \u{2318}V to paste the response")
+            InstructionRow(number: 1, text: "Place your cursor in the field you want filled")
+            InstructionRow(number: 2, text: "Press \u{2325}V")
+            InstructionRow(number: 3, text: "Text appears automatically")
         }
         .padding()
         .background(
@@ -124,16 +124,16 @@ struct ReadyView: View {
             }
             .font(.subheadline)
 
-            // API Key status
+            // Accessibility status
             HStack {
-                Image(systemName: "key.fill")
+                Image(systemName: "figure.arms.open")
                     .foregroundColor(.secondary)
-                Text("API Key")
+                Text("Accessibility")
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundColor(.green)
-                    Text("Configured")
+                    Text("Enabled")
                         .foregroundColor(.green)
                 }
             }
