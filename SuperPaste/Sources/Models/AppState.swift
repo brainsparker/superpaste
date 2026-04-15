@@ -4,6 +4,7 @@ import CoreGraphics
 
 /// Main window state machine
 enum MainWindowState: Equatable {
+    case welcome
     case permissionRequired
     case accessibilityRequired
     case trialExpired
@@ -39,6 +40,12 @@ final class AppState: ObservableObject {
         case success
         case failure(String)
     }
+
+    /// Whether the user has completed the welcome screen
+    @AppStorage("hasSeenWelcome") private(set) var hasSeenWelcome = false
+
+    /// Number of times SuperPaste has been used
+    @AppStorage("useCount") private(set) var useCount = 0
 
     // MARK: - Services
 
@@ -99,6 +106,17 @@ final class AppState: ObservableObject {
                 self?.updateMainWindowState()
             }
             .store(in: &cancellables)
+
+        // If CGEvent tap creation fails, AXIsProcessTrusted() lied to us —
+        // force back to accessibilityRequired so the user can re-grant it.
+        hotkeyService.$accessibilityPermissionDenied
+            .receive(on: DispatchQueue.main)
+            .filter { $0 }
+            .sink { [weak self] _ in
+                self?.accessibilityEnabled = false
+                self?.updateMainWindowState()
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - State Management
@@ -110,7 +128,9 @@ final class AppState: ObservableObject {
     }
 
     private func updateMainWindowState() {
-        if !screenRecordingEnabled {
+        if !hasSeenWelcome {
+            mainWindowState = .welcome
+        } else if !screenRecordingEnabled {
             mainWindowState = .permissionRequired
         } else if !accessibilityEnabled {
             mainWindowState = .accessibilityRequired
@@ -141,16 +161,22 @@ final class AppState: ObservableObject {
         trialDaysRemaining = remaining
     }
 
+    /// Mark the welcome screen as seen and advance to next state
+    func dismissWelcome() {
+        hasSeenWelcome = true
+        updateMainWindowState()
+    }
+
     // MARK: - Hotkey Handler
 
     private func handleHotkeyTrigger() {
         guard screenRecordingEnabled else {
-            hudState.showError("Screen Recording permission required")
+            hudState.showError("Screen Recording permission required \u{2014} open System Settings to enable.")
             return
         }
 
         guard accessibilityEnabled else {
-            hudState.showError("Accessibility permission required")
+            hudState.showError("Accessibility permission required \u{2014} open System Settings to enable.")
             return
         }
 
@@ -186,7 +212,7 @@ final class AppState: ObservableObject {
 
         guard let context = screenCaptureService.captureWithFallback() else {
             lastError = "Failed to capture screenshot"
-            hudState.showError("Couldn't capture screen")
+            hudState.showError("Couldn't capture your screen \u{2014} check Screen Recording permission.")
             isProcessing = false
             return
         }
@@ -207,6 +233,7 @@ final class AppState: ObservableObject {
             guard !Task.isCancelled else { isProcessing = false; return }
             simulatePaste()
 
+            useCount += 1
             hudState.showReady()
 
         } catch LLMService.LLMError.trialExpired {
@@ -234,7 +261,7 @@ final class AppState: ObservableObject {
                 return
             }
             lastError = error.localizedDescription
-            hudState.showError("Something went wrong")
+            hudState.showError(error.localizedDescription)
         }
 
         isProcessing = false
@@ -300,5 +327,9 @@ final class AppState: ObservableObject {
 
     func recheckPermission() {
         updateState()
+        // Retry hotkey registration in case Accessibility was just granted
+        if !hotkeyService.isRegistered {
+            hotkeyService.register()
+        }
     }
 }

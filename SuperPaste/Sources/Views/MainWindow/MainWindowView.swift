@@ -7,6 +7,10 @@ struct MainWindowView: View {
     var body: some View {
         Group {
             switch appState.mainWindowState {
+            case .welcome:
+                WelcomeView()
+                    .environmentObject(appState)
+
             case .permissionRequired:
                 PermissionRequestView()
                     .environmentObject(appState)

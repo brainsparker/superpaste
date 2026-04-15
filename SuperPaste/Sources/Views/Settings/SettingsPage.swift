@@ -1,6 +1,5 @@
 import SwiftUI
 import ServiceManagement
-import HotKey
 
 /// Settings configuration page
 struct SettingsPage: View {
@@ -11,6 +10,8 @@ struct SettingsPage: View {
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("personalContext") private var personalContext = ""
     @AppStorage("licenseKey") private var storedLicenseKey = ""
+    @AppStorage("responseTone") private var responseTone: ResponseTone = .matchContext
+    @AppStorage("responseLength") private var responseLength: ResponseLength = .balanced
 
     @State private var currentHotkey = "Option V"
     @State private var licenseKeyInput = ""
@@ -33,6 +34,9 @@ struct SettingsPage: View {
 
                 // Hotkey section
                 hotkeySection
+
+                // Response behavior
+                responseBehaviorSection
 
                 // HUD Position section
                 hudPositionSection
@@ -217,6 +221,49 @@ struct SettingsPage: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(nsColor: .controlBackgroundColor))
         )
+    }
+
+    // MARK: - Response Behavior Section
+
+    private var responseBehaviorSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Response behavior")
+                .font(.headline)
+
+            // Tone picker
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Tone")
+                    .font(.subheadline.weight(.medium))
+
+                Picker("Tone", selection: $responseTone) {
+                    ForEach(ResponseTone.allCases) { tone in
+                        Text(tone.displayName).tag(tone)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(responseTone.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            // Length picker
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Length")
+                    .font(.subheadline.weight(.medium))
+
+                Picker("Length", selection: $responseLength) {
+                    ForEach(ResponseLength.allCases) { length in
+                        Text(length.displayName).tag(length)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(responseLength.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
     }
 
     // MARK: - HUD Position Section

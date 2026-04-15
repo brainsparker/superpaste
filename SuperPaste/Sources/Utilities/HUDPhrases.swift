@@ -25,12 +25,37 @@ enum HUDPhrases {
         "Done."
     ]
 
-    static let error: [String] = [
-        "Something went wrong.",
-        "Couldn't connect.",
-        "Check your API key.",
-        "Try again."
-    ]
+    // MARK: - Actionable Error Messages
+
+    /// Maps error context keywords to user-friendly recovery messages.
+    static func actionableError(for message: String) -> String {
+        let lower = message.lowercased()
+
+        if lower.contains("timeout") || lower.contains("timed out") {
+            return "Took too long \u{2014} try again with a simpler screen."
+        }
+        if lower.contains("network") || lower.contains("connect") || lower.contains("offline") {
+            return "Can't reach the server \u{2014} check your internet connection."
+        }
+        if lower.contains("api key") || lower.contains("unauthorized") || lower.contains("401") {
+            return "Authentication issue \u{2014} check your API key in settings."
+        }
+        if lower.contains("rate limit") || lower.contains("429") {
+            return "Too many requests \u{2014} wait a moment and try again."
+        }
+        if lower.contains("capture") || lower.contains("screenshot") {
+            return "Couldn't capture your screen \u{2014} check Screen Recording permission."
+        }
+        if lower.contains("permission") || lower.contains("accessibility") {
+            return "Missing permission \u{2014} open Settings to re-enable."
+        }
+        if lower.contains("server") || lower.contains("500") || lower.contains("502") || lower.contains("503") {
+            return "Server hiccup \u{2014} try again in a few seconds."
+        }
+
+        // Fallback
+        return "Something went wrong \u{2014} try again."
+    }
 
     // MARK: - Random Selection with No Repeat
 
@@ -62,9 +87,9 @@ enum HUDPhrases {
         return phrase
     }
 
-    /// Get a random error phrase
-    static func randomError() -> String {
-        error.randomElement() ?? error[0]
+    /// Get an actionable error phrase based on the error context
+    static func randomError(context: String = "") -> String {
+        actionableError(for: context)
     }
 
     /// Reset last-used tracking (useful for testing)

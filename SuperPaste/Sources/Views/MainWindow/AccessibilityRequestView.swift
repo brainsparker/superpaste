@@ -34,7 +34,10 @@ struct AccessibilityRequestView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
+
             Text("Press Option V. Text appears.")
+
+            Text("Sees your screen. Writes what you need.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
