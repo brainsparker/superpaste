@@ -29,11 +29,27 @@ final class PermissionManager: ObservableObject {
 
     /// Check the current Screen Recording permission status.
     /// Updates the `screenRecordingEnabled` property.
+    ///
+    /// `CGPreflightScreenCaptureAccess()` is unreliable for ad-hoc signed builds — the TCC
+    /// database ties permissions to a code-signing identity that changes on every rebuild.
+    /// Fall back to probing actual capability: window names are only readable when Screen
+    /// Recording is granted, so if we can see at least one, we have permission.
     @discardableResult
     func checkPermission() -> Bool {
-        let enabled = CGPreflightScreenCaptureAccess()
-        screenRecordingEnabled = enabled
-        return enabled
+        if CGPreflightScreenCaptureAccess() {
+            screenRecordingEnabled = true
+            return true
+        }
+
+        // Capability probe: kCGWindowName is only populated when Screen Recording is allowed.
+        let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] ?? []
+        let hasAccess = windowList.contains { $0[kCGWindowName as String] as? String != nil }
+
+        screenRecordingEnabled = hasAccess
+        return hasAccess
     }
 
     /// Check the current Accessibility permission status.

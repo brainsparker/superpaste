@@ -9,13 +9,11 @@ let package = Package(
     products: [
         .executable(name: "SuperPaste", targets: ["SuperPaste"])
     ],
-    dependencies: [
-        .package(url: "https://github.com/soffes/HotKey", from: "0.2.0")
-    ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "SuperPaste",
-            dependencies: ["HotKey"],
+            dependencies: [],
             path: "Sources",
             resources: [
                 .process("../Resources")
