@@ -21,25 +21,44 @@ struct AboutPage: View {
                     .foregroundColor(.secondary)
             }
 
-            // Powered by
-            Text("Powered by Claude AI")
-                .font(.subheadline)
+            // Tagline
+            Text("Sees your screen. Writes what you need.")
+                .font(.body.weight(.medium))
                 .foregroundColor(.secondary)
 
             Divider()
                 .frame(width: 200)
 
             // Description
-            Text("Press \u{2325}V. SuperPaste reads your screen and types the response — no copying, no prompting, no second step.")
+            Text("Press \u{2325}V anywhere \u{2014} SuperPaste reads your screen, understands the context, and types the right response. No copying, no prompting, no second step.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
 
+            // Claude AI badge
+            HStack(spacing: 6) {
+                Image(systemName: "brain")
+                    .font(.caption)
+                Text("Powered by Claude AI")
+                    .font(.subheadline.weight(.medium))
+            }
+            .foregroundColor(.secondary)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
+
             Spacer()
 
             // Copyright
-            Text("© 2025 All rights reserved.")
+            Text("\u{00A9} 2025 All rights reserved.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

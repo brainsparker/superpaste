@@ -34,7 +34,7 @@ struct AccessibilityRequestView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press \u{2325}V. Text appears.")
+            Text("Sees your screen. Writes what you need.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }

@@ -101,17 +101,17 @@ final class LLMService {
         var userFriendlyMessage: String {
             switch self {
             case .networkError:
-                return "Check your internet connection"
+                return "Can't connect \u{2014} check your internet connection."
             case .rateLimited:
-                return "Too many requests, try again soon"
+                return "Too many requests \u{2014} wait a moment and try again."
             case .serverError:
-                return "Server error, try again"
+                return "Server hiccup \u{2014} try again in a few seconds."
             case .timeout:
-                return "Request timed out"
+                return "Took too long \u{2014} try with a simpler screen."
             case .invalidResponse, .emptyResponse:
-                return "Something went wrong"
+                return "Got an unexpected response \u{2014} try again."
             case .imageEncodingFailed:
-                return "Failed to process screenshot"
+                return "Couldn't process screenshot \u{2014} try a different window."
             }
         }
     }

@@ -10,13 +10,13 @@ struct HowItWorksPage: View {
                     .font(.title2.bold())
 
                 // Description
-                Text("SuperPaste sees your screen and writes for you. No need to copy text or explain context.")
+                Text("SuperPaste sees your screen and writes what you need. No copying, no prompting, no app-switching.")
                     .foregroundColor(.secondary)
 
                 // Steps
                 VStack(alignment: .leading, spacing: 16) {
-                    StepRow(number: 1, title: "Place your cursor where you want text", description: "Email, Slack, a form, a document — anywhere.")
-                    StepRow(number: 2, title: "Press \u{2325}V", description: "SuperPaste reads your screen.")
+                    StepRow(number: 1, title: "Place your cursor where you want text", description: "Email, Slack, a form, a document \u{2014} anywhere.")
+                    StepRow(number: 2, title: "Press \u{2325}V", description: "SuperPaste takes a snapshot and reads the room.")
                     StepRow(number: 3, title: "Text appears automatically", description: "No \u{2318}V needed. It just arrives.")
                 }
                 .padding()
@@ -25,25 +25,54 @@ struct HowItWorksPage: View {
                         .fill(Color(nsColor: .controlBackgroundColor))
                 )
 
+                // Scenarios
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("What you can do with it")
+                        .font(.headline)
+
+                    ScenarioCard(
+                        icon: "envelope.fill",
+                        title: "Reply to emails",
+                        detail: "See an email, get a thoughtful reply. Matches the tone of the conversation."
+                    )
+                    ScenarioCard(
+                        icon: "bubble.left.and.bubble.right.fill",
+                        title: "Answer messages",
+                        detail: "Slack, Teams, iMessage \u{2014} SuperPaste reads the thread and writes your response."
+                    )
+                    ScenarioCard(
+                        icon: "chevron.left.forwardslash.chevron.right",
+                        title: "Write code",
+                        detail: "Sees your editor, understands the context, writes the next logical block."
+                    )
+                    ScenarioCard(
+                        icon: "doc.text.fill",
+                        title: "Fill in forms",
+                        detail: "Application fields, surveys, sign-up pages \u{2014} filled in contextually."
+                    )
+                    ScenarioCard(
+                        icon: "exclamationmark.triangle.fill",
+                        title: "Explain errors",
+                        detail: "See an error message? Get a plain-English explanation and suggested fix."
+                    )
+                    ScenarioCard(
+                        icon: "doc.richtext.fill",
+                        title: "Continue writing",
+                        detail: "Drafting a doc? SuperPaste picks up where you left off, in your voice."
+                    )
+                }
+
+                Divider()
+
                 // What SuperPaste sees
                 VStack(alignment: .leading, spacing: 12) {
-                    Text("What SuperPaste sees:")
+                    Text("What SuperPaste sees")
                         .font(.headline)
 
                     BulletPoint(text: "A screenshot of your active window")
                     BulletPoint(text: "The app name and window title")
+                    BulletPoint(text: "Nothing else \u{2014} no files, no clipboard, no history")
                 }
-
-                // What SuperPaste does NOT do
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("What SuperPaste does NOT do:")
-                        .font(.headline)
-
-                    BulletPoint(text: "Record video or continuous screenshots")
-                    BulletPoint(text: "Store screenshots after processing")
-                    BulletPoint(text: "Access files, passwords, or other private data")
-                }
-                .padding(.top, 8)
             }
             .padding(24)
         }
@@ -70,6 +99,30 @@ struct StepRow: View {
                     .font(.subheadline.weight(.medium))
 
                 Text(description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+    }
+}
+
+/// A scenario card for the "What you can do" section
+struct ScenarioCard: View {
+    let icon: String
+    let title: String
+    let detail: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: icon)
+                .font(.body)
+                .foregroundColor(.blue)
+                .frame(width: 24, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Text(detail)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

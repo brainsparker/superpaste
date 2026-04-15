@@ -97,7 +97,7 @@ final class HUDState: ObservableObject {
     func showError(_ message: String) {
         cancelTasks()
         stage = .error(message)
-        currentPhrase = HUDPhrases.randomError()
+        currentPhrase = HUDPhrases.randomError(context: message)
         progress = 0.0
 
         // Auto-dismiss error after 5 seconds

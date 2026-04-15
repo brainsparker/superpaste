@@ -4,6 +4,7 @@ import CoreGraphics
 
 /// Main window state machine
 enum MainWindowState: Equatable {
+    case welcome
     case permissionRequired
     case accessibilityRequired
     case ready
@@ -25,6 +26,12 @@ final class AppState: ObservableObject {
 
     /// Whether Accessibility permission is granted
     @Published private(set) var accessibilityEnabled = false
+
+    /// Whether the user has completed the welcome screen
+    @AppStorage("hasSeenWelcome") private(set) var hasSeenWelcome = false
+
+    /// Number of times SuperPaste has been used
+    @AppStorage("useCount") private(set) var useCount = 0
 
     // MARK: - Services
 
@@ -95,7 +102,9 @@ final class AppState: ObservableObject {
     }
 
     private func updateMainWindowState() {
-        if !screenRecordingEnabled {
+        if !hasSeenWelcome {
+            mainWindowState = .welcome
+        } else if !screenRecordingEnabled {
             mainWindowState = .permissionRequired
         } else if !accessibilityEnabled {
             mainWindowState = .accessibilityRequired
@@ -104,16 +113,22 @@ final class AppState: ObservableObject {
         }
     }
 
+    /// Mark the welcome screen as seen and advance to next state
+    func dismissWelcome() {
+        hasSeenWelcome = true
+        updateMainWindowState()
+    }
+
     // MARK: - Hotkey Handler
 
     private func handleHotkeyTrigger() {
         guard screenRecordingEnabled else {
-            hudState.showError("Screen Recording permission required")
+            hudState.showError("Screen Recording permission required \u{2014} open System Settings to enable.")
             return
         }
 
         guard accessibilityEnabled else {
-            hudState.showError("Accessibility permission required")
+            hudState.showError("Accessibility permission required \u{2014} open System Settings to enable.")
             return
         }
 
@@ -144,7 +159,7 @@ final class AppState: ObservableObject {
 
         guard let context = screenCaptureService.captureWithFallback() else {
             lastError = "Failed to capture screenshot"
-            hudState.showError("Couldn't capture screen")
+            hudState.showError("Couldn't capture your screen \u{2014} check Screen Recording permission.")
             isProcessing = false
             return
         }
@@ -165,6 +180,7 @@ final class AppState: ObservableObject {
             guard !Task.isCancelled else { isProcessing = false; return }
             simulatePaste()
 
+            useCount += 1
             hudState.showReady()
 
         } catch let error as LLMService.LLMError {
@@ -181,7 +197,7 @@ final class AppState: ObservableObject {
                 return
             }
             lastError = error.localizedDescription
-            hudState.showError("Something went wrong")
+            hudState.showError(error.localizedDescription)
         }
 
         isProcessing = false

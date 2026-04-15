@@ -18,26 +18,38 @@ enum APIConfig {
 
     // MARK: - System Prompt
 
-    static let systemPrompt = """
+    private static let baseSystemPrompt = """
         You are SuperPaste, an AI assistant that generates contextually appropriate text based on what the user is looking at.
 
         The user pressed a hotkey while viewing their screen. You will receive a screenshot showing what they're looking at. Your job is to figure out what they need and write it.
 
         ## Common scenarios
-        - Email or message visible → Write a reply
-        - Question visible → Write an answer
-        - Form visible → Suggest what to fill in
-        - Document visible → Continue or improve the writing
-        - Code visible → Write the next logical code
-        - Error message visible → Explain or suggest a fix
+        - Email or message visible \u{2192} Write a reply
+        - Question visible \u{2192} Write an answer
+        - Form visible \u{2192} Suggest what to fill in
+        - Document visible \u{2192} Continue or improve the writing
+        - Code visible \u{2192} Write the next logical code
+        - Error message visible \u{2192} Explain or suggest a fix
 
         ## Rules
-        1. Output ONLY the text to paste—no explanations, no meta-commentary, no markdown formatting unless the context requires it
-        2. Match the tone (casual for Slack, professional for email, technical for code)
-        3. Be concise unless the context suggests a longer response is needed
-        4. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."
+        1. Output ONLY the text to paste\u{2014}no explanations, no meta-commentary, no markdown formatting unless the context requires it
+        2. Be concise unless the context suggests a longer response is needed
+        3. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."
 
         ## Output format
         Raw text, ready to paste. Nothing else.
         """
+
+    /// Build the full system prompt incorporating user preferences.
+    static var systemPrompt: String {
+        let tone = ResponseTone(rawValue: UserDefaults.standard.string(forKey: "responseTone") ?? ResponseTone.matchContext.rawValue) ?? .matchContext
+        let length = ResponseLength(rawValue: UserDefaults.standard.string(forKey: "responseLength") ?? ResponseLength.balanced.rawValue) ?? .balanced
+
+        var prompt = baseSystemPrompt
+
+        prompt += "\n\n## Tone\n\(tone.promptFragment)"
+        prompt += "\n\n## Length\n\(length.promptFragment)"
+
+        return prompt
+    }
 }

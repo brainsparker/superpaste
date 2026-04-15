@@ -15,6 +15,9 @@ struct PermissionRequestView: View {
             permissionCard
                 .padding(24)
 
+            privacySection
+                .padding(.bottom, 16)
+
             footerSection
                 .padding(.horizontal, 24)
                 .padding(.bottom, 24)
@@ -34,7 +37,7 @@ struct PermissionRequestView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press \u{2325}V. Text appears.")
+            Text("Sees your screen. Writes what you need.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -92,6 +95,29 @@ struct PermissionRequestView: View {
         )
     }
 
+    // MARK: - Privacy Reassurance
+
+    private var privacySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("What SuperPaste does NOT do:")
+                .font(.caption.weight(.semibold))
+
+            PrivacyPoint(text: "Record video or continuous screenshots")
+            PrivacyPoint(text: "Store screenshots after processing")
+            PrivacyPoint(text: "Access files, passwords, or other private data")
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.green.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(Color.green.opacity(0.2), lineWidth: 1)
+        )
+        .padding(.horizontal, 24)
+    }
+
     // MARK: - Footer
 
     private var footerSection: some View {
@@ -107,6 +133,24 @@ struct PermissionRequestView: View {
                 Text("I've enabled it")
             }
             .buttonStyle(.bordered)
+        }
+    }
+}
+
+/// A single privacy reassurance point with a checkmark
+struct PrivacyPoint: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "xmark")
+                .font(.caption2.weight(.bold))
+                .foregroundColor(.red.opacity(0.6))
+                .frame(width: 14)
+
+            Text(text)
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 }
