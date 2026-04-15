@@ -34,7 +34,7 @@ struct AccessibilityRequestView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press \u{2325}V. Text appears.")
+            Text("Press Option V. Text appears.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -53,7 +53,7 @@ struct AccessibilityRequestView: View {
                     .font(.headline)
             }
 
-            Text("Without this, you'd press \u{2325}V and then manually paste with \u{2318}V. With it, the text appears in your field the instant it's ready — nothing else to do.")
+            Text("Without this, you'd press Option V and then manually paste with \u{2318}V. With it, the text appears in your field the instant it's ready — nothing else to do.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

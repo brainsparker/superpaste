@@ -15,6 +15,10 @@ struct MainWindowView: View {
                 AccessibilityRequestView()
                     .environmentObject(appState)
 
+            case .trialExpired:
+                TrialExpiredView()
+                    .environmentObject(appState)
+
             case .ready:
                 ReadyView()
                     .environmentObject(appState)

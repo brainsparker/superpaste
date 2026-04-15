@@ -16,7 +16,7 @@ struct HowItWorksPage: View {
                 // Steps
                 VStack(alignment: .leading, spacing: 16) {
                     StepRow(number: 1, title: "Place your cursor where you want text", description: "Email, Slack, a form, a document — anywhere.")
-                    StepRow(number: 2, title: "Press \u{2325}V", description: "SuperPaste reads your screen.")
+                    StepRow(number: 2, title: "Press Option V", description: "SuperPaste reads your screen.")
                     StepRow(number: 3, title: "Text appears automatically", description: "No \u{2318}V needed. It just arrives.")
                 }
                 .padding()

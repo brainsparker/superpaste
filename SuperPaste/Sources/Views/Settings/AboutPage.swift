@@ -30,7 +30,7 @@ struct AboutPage: View {
                 .frame(width: 200)
 
             // Description
-            Text("Press \u{2325}V. SuperPaste reads your screen and types the response — no copying, no prompting, no second step.")
+            Text("Press Option V. SuperPaste reads your screen and types the response — no copying, no prompting, no second step.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

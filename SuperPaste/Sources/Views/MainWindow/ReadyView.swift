@@ -52,7 +52,7 @@ struct ReadyView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press \u{2325}V. Text appears.")
+            Text("Press Option V. Text appears.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -92,7 +92,7 @@ struct ReadyView: View {
                 .font(.headline)
 
             InstructionRow(number: 1, text: "Place your cursor in the field you want filled")
-            InstructionRow(number: 2, text: "Press \u{2325}V")
+            InstructionRow(number: 2, text: "Press Option V")
             InstructionRow(number: 3, text: "Text appears automatically")
         }
         .padding()
@@ -138,6 +138,31 @@ struct ReadyView: View {
                 }
             }
             .font(.subheadline)
+
+            // Trial countdown (hidden for licensed users)
+            if let days = appState.trialDaysRemaining {
+                Divider()
+                    .padding(.vertical, 4)
+
+                HStack {
+                    Image(systemName: "calendar")
+                        .foregroundColor(days <= 3 ? .orange : .secondary)
+                    Text(days == 0 ? "Trial expires today" : "\(days) day\(days == 1 ? "" : "s") left in trial")
+                    Spacer()
+                    Button {
+                        if let url = URL(string: "https://buy.polar.sh/polar_cl_YS3DZpcmFoh7GDvDvRxWezZLUmPKgwf9Mb6T618NFdC") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        Text("Upgrade")
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
+                }
+                .font(.subheadline)
+                .foregroundColor(days <= 3 ? .orange : .secondary)
+            }
         }
     }
 

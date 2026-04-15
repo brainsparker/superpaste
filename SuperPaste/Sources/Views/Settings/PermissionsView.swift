@@ -17,7 +17,7 @@ struct PermissionsView: View {
                 permissionCard(
                     icon: "rectangle.inset.filled.and.cursorarrow",
                     title: "Screen Recording",
-                    description: "SuperPaste captures your active window when you press \u{2325}V. Screenshots are only taken on-demand and never stored.",
+                    description: "SuperPaste captures your active window when you press Option V. Screenshots are only taken on-demand and never stored.",
                     isEnabled: permissionManager.screenRecordingEnabled,
                     onOpen: { permissionManager.openScreenRecordingSettings() },
                     onRecheck: { permissionManager.checkPermission() }

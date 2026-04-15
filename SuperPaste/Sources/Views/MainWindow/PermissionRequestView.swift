@@ -34,7 +34,7 @@ struct PermissionRequestView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press \u{2325}V. Text appears.")
+            Text("Press Option V. Text appears.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
@@ -53,7 +53,7 @@ struct PermissionRequestView: View {
                     .font(.headline)
             }
 
-            Text("SuperPaste takes a single snapshot of your active window the moment you press \u{2325}V — so it knows exactly what you're looking at without you having to copy text, switch apps, or explain anything.")
+            Text("SuperPaste takes a single snapshot of your active window the moment you press Option V — so it knows exactly what you're looking at without you having to copy text, switch apps, or explain anything.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

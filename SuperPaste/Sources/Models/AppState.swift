@@ -6,6 +6,7 @@ import CoreGraphics
 enum MainWindowState: Equatable {
     case permissionRequired
     case accessibilityRequired
+    case trialExpired
     case ready
 }
 
@@ -25,6 +26,19 @@ final class AppState: ObservableObject {
 
     /// Whether Accessibility permission is granted
     @Published private(set) var accessibilityEnabled = false
+
+    /// Days remaining in free trial. nil when licensed (no badge shown).
+    @Published private(set) var trialDaysRemaining: Int? = nil
+
+    /// Activation status shown in TrialExpiredView / Settings
+    @Published var licenseActivationState: LicenseActivationState = .idle
+
+    enum LicenseActivationState: Equatable {
+        case idle
+        case validating
+        case success
+        case failure(String)
+    }
 
     // MARK: - Services
 
@@ -49,6 +63,7 @@ final class AppState: ObservableObject {
         setupHotkeySubscription()
         setupPermissionObserver()
         updateState()
+        computeTrialDaysRemaining()
     }
 
     // MARK: - Setup
@@ -99,9 +114,31 @@ final class AppState: ObservableObject {
             mainWindowState = .permissionRequired
         } else if !accessibilityEnabled {
             mainWindowState = .accessibilityRequired
+        } else if UserDefaults.standard.bool(forKey: "trialExpiredLocally") {
+            mainWindowState = .trialExpired
         } else {
             mainWindowState = .ready
         }
+    }
+
+    private func computeTrialDaysRemaining() {
+        // If licensed, no badge needed
+        if let key = UserDefaults.standard.string(forKey: "licenseKey"), !key.isEmpty {
+            trialDaysRemaining = nil
+            return
+        }
+        // Use local trial start date for display purposes (server enforces actual expiry)
+        let trialStartKey = "trialStartDate"
+        if UserDefaults.standard.object(forKey: trialStartKey) == nil {
+            UserDefaults.standard.set(Date(), forKey: trialStartKey)
+        }
+        guard let start = UserDefaults.standard.object(forKey: trialStartKey) as? Date else {
+            trialDaysRemaining = 7
+            return
+        }
+        let elapsed = Date().timeIntervalSince(start)
+        let remaining = max(0, 7 - Int(elapsed / 86400))
+        trialDaysRemaining = remaining
     }
 
     // MARK: - Hotkey Handler
@@ -114,6 +151,11 @@ final class AppState: ObservableObject {
 
         guard accessibilityEnabled else {
             hudState.showError("Accessibility permission required")
+            return
+        }
+
+        guard mainWindowState != .trialExpired else {
+            hudState.showError("Trial ended — enter your license key")
             return
         }
 
@@ -167,6 +209,17 @@ final class AppState: ObservableObject {
 
             hudState.showReady()
 
+        } catch LLMService.LLMError.trialExpired {
+            guard !Task.isCancelled else { isProcessing = false; return }
+            UserDefaults.standard.set(true, forKey: "trialExpiredLocally")
+            updateMainWindowState()
+            hudState.dismiss()
+
+        } catch LLMService.LLMError.dailyLimitReached {
+            guard !Task.isCancelled else { isProcessing = false; return }
+            lastError = "Daily limit reached"
+            hudState.showError("Daily limit reached. Resets at midnight.")
+
         } catch let error as LLMService.LLMError {
             guard !Task.isCancelled else {
                 isProcessing = false
@@ -205,6 +258,36 @@ final class AppState: ObservableObject {
         processingTask?.cancel()
         hudState.dismiss()
         isProcessing = false
+    }
+
+    func activateLicense(_ key: String) {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        licenseActivationState = .validating
+
+        Task {
+            do {
+                let valid = try await llmService.validateLicense(trimmed)
+                if valid {
+                    UserDefaults.standard.set(trimmed, forKey: "licenseKey")
+                    UserDefaults.standard.removeObject(forKey: "trialExpiredLocally")
+                    licenseActivationState = .success
+                    computeTrialDaysRemaining()
+                    updateMainWindowState()
+                } else {
+                    licenseActivationState = .failure("License key not recognized.")
+                }
+            } catch {
+                licenseActivationState = .failure("Couldn't connect. Check your internet connection.")
+            }
+        }
+    }
+
+    func removeLicense() {
+        UserDefaults.standard.removeObject(forKey: "licenseKey")
+        licenseActivationState = .idle
+        computeTrialDaysRemaining()
+        updateMainWindowState()
     }
 
     func openScreenRecordingSettings() {

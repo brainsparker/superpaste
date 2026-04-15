@@ -9,14 +9,27 @@ struct SettingsPage: View {
     @AppStorage("hudPosition") private var hudPosition: HUDPosition = .topRight
     @AppStorage("playSoundOnReady") private var playSoundOnReady = false
     @AppStorage("launchAtLogin") private var launchAtLogin = false
+    @AppStorage("personalContext") private var personalContext = ""
+    @AppStorage("licenseKey") private var storedLicenseKey = ""
 
-    @State private var currentHotkey = "\u{2325}V"
+    @State private var currentHotkey = "Option V"
+    @State private var licenseKeyInput = ""
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 Text("Settings")
                     .font(.title2.bold())
+
+                // License section
+                licenseSection
+
+                Divider()
+
+                // About You section
+                aboutYouSection
+
+                Divider()
 
                 // Hotkey section
                 hotkeySection
@@ -32,6 +45,143 @@ struct SettingsPage: View {
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    // MARK: - License Section
+
+    private var licenseSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("License")
+                .font(.headline)
+
+            if !storedLicenseKey.isEmpty {
+                // Licensed state
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundColor(.green)
+                    Text("Licensed — thank you!")
+                        .foregroundColor(.green)
+                        .fontWeight(.medium)
+                    Spacer()
+                    Button("Remove") {
+                        appState.removeLicense()
+                        licenseKeyInput = ""
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .buttonStyle(.plain)
+                }
+                .font(.subheadline)
+                .padding(.vertical, 4)
+            } else {
+                // Unlicensed — show entry field
+                Text("Enter your license key to unlock full access.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 8) {
+                    TextField("Paste license key", text: $licenseKeyInput)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(appState.licenseActivationState == .validating)
+
+                    Button {
+                        appState.activateLicense(licenseKeyInput)
+                    } label: {
+                        if appState.licenseActivationState == .validating {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                                .frame(width: 60)
+                        } else {
+                            Text("Activate")
+                                .frame(width: 60)
+                        }
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(licenseKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              || appState.licenseActivationState == .validating)
+                }
+
+                switch appState.licenseActivationState {
+                case .success:
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                        Text("Activated!").foregroundColor(.green)
+                    }
+                    .font(.caption)
+                case .failure(let message):
+                    HStack(spacing: 6) {
+                        Image(systemName: "xmark.circle.fill").foregroundColor(.red)
+                        Text(message).foregroundColor(.red)
+                    }
+                    .font(.caption)
+                default:
+                    Button {
+                        if let url = URL(string: "https://buy.polar.sh/polar_cl_YS3DZpcmFoh7GDvDvRxWezZLUmPKgwf9Mb6T618NFdC") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    } label: {
+                        Text("Get a license — $5/month →")
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundColor(.blue)
+                }
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+    }
+
+    // MARK: - About You Section
+
+    private var aboutYouSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("About You")
+                .font(.headline)
+
+            Text("Help SuperPaste write in your voice.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            ZStack(alignment: .topLeading) {
+                // Placeholder
+                if personalContext.isEmpty {
+                    Text("I'm a product manager at a tech company. I prefer direct, concise communication. For emails I lean professional but warm. When I'm writing code it's usually Swift or Python.")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(nsColor: .placeholderTextColor))
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 8)
+                        .allowsHitTesting(false)
+                }
+
+                TextEditor(text: $personalContext)
+                    .font(.system(size: 13))
+                    .frame(minHeight: 90)
+                    .scrollContentBackground(.hidden)
+                    .background(Color.clear)
+            }
+            .padding(6)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
+
+            Text("The more context you give, the better SuperPaste matches your style and intent.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
     }
 
     // MARK: - Hotkey Section
@@ -58,7 +208,7 @@ struct SettingsPage: View {
                 Spacer()
             }
 
-            Text("Press \u{2325}V from any app to instantly fill the focused field.")
+            Text("Press Option V from any app to instantly fill the focused field.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

@@ -1,29 +1,159 @@
 /**
  * SuperPaste API Proxy
  *
- * Receives vision requests from the macOS app and forwards them to Anthropic.
- * The API key lives here — users never need to configure anything.
+ * Handles trial enforcement, rate limiting, and license key validation
+ * before proxying requests to Anthropic.
  *
  * Deploy: `cd server && npx wrangler deploy`
- * Set secret: `npx wrangler secret put ANTHROPIC_API_KEY`
+ * Secrets: ANTHROPIC_API_KEY, POLAR_ACCESS_TOKEN, POLAR_ORGANIZATION_ID
+ * KV: SUPERPASTE_KV (create with `wrangler kv namespace create SUPERPASTE_KV`)
  */
 
 export interface Env {
   ANTHROPIC_API_KEY: string;
+  POLAR_ACCESS_TOKEN: string;
+  POLAR_ORGANIZATION_ID: string;
+  SUPERPASTE_KV: KVNamespace;
 }
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
+const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const TRIAL_DAILY_LIMIT = 15;
+const LICENSED_DAILY_LIMIT = 100;
+const LICENSE_CACHE_TTL_SECONDS = 3600; // 1 hour
 
+// --- Helper: JSON response ---
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// --- Helper: today's date as YYYY-MM-DD in UTC ---
+function todayUTC(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+// --- Trial enforcement ---
+async function enforceTrial(deviceId: string, env: Env): Promise<void> {
+  const key = `device:${deviceId}:first_seen`;
+  const existing = await env.SUPERPASTE_KV.get(key);
+
+  if (!existing) {
+    // First time this device is seen — start the trial clock
+    await env.SUPERPASTE_KV.put(key, String(Date.now()));
+    return;
+  }
+
+  const firstSeen = parseInt(existing, 10);
+  if (Date.now() - firstSeen > TRIAL_DURATION_MS) {
+    throw { status: 402, error: "trial_expired", message: "Your 7-day free trial has ended." };
+  }
+}
+
+// --- Rate limit enforcement ---
+async function enforceRateLimit(deviceId: string, limit: number, env: Env): Promise<void> {
+  const usageKey = `device:${deviceId}:usage:${todayUTC()}`;
+  const current = parseInt((await env.SUPERPASTE_KV.get(usageKey)) ?? "0", 10);
+
+  if (current >= limit) {
+    throw { status: 429, error: "rate_limited", message: "Daily limit reached. Resets at midnight UTC." };
+  }
+
+  // Increment with a 48-hour TTL so old keys self-clean
+  await env.SUPERPASTE_KV.put(usageKey, String(current + 1), { expirationTtl: 48 * 3600 });
+}
+
+// --- License key validation (Polar.sh) ---
+async function validateLicense(key: string, env: Env): Promise<boolean> {
+  // Check KV cache first
+  const cacheKey = `license_valid:${key}`;
+  const cached = await env.SUPERPASTE_KV.get(cacheKey);
+  if (cached !== null) {
+    return cached === "1";
+  }
+
+  // Call Polar.sh validation API
+  let isValid = false;
+  try {
+    const response = await fetch("https://api.polar.sh/v1/license-keys/validate", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${env.POLAR_ACCESS_TOKEN}`,
+      },
+      body: JSON.stringify({
+        key,
+        organization_id: env.POLAR_ORGANIZATION_ID,
+      }),
+    });
+    isValid = response.ok;
+  } catch {
+    // Network error — fail open to avoid blocking legitimate users
+    return true;
+  }
+
+  // Cache result for 1 hour
+  await env.SUPERPASTE_KV.put(cacheKey, isValid ? "1" : "0", {
+    expirationTtl: LICENSE_CACHE_TTL_SECONDS,
+  });
+
+  return isValid;
+}
+
+// --- Main handler ---
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    // Only accept POST /v1/messages
     const url = new URL(request.url);
+
+    // --- Route: POST /v1/validate-license ---
+    if (request.method === "POST" && url.pathname === "/v1/validate-license") {
+      let body: { key?: string };
+      try {
+        body = await request.json() as { key?: string };
+      } catch {
+        return json({ error: "bad_request" }, 400);
+      }
+
+      if (!body.key) {
+        return json({ valid: false, error: "missing_key" }, 400);
+      }
+
+      const isValid = await validateLicense(body.key, env);
+      return json({ valid: isValid });
+    }
+
+    // --- Route: POST /v1/messages ---
     if (request.method !== "POST" || url.pathname !== "/v1/messages") {
       return new Response("Not Found", { status: 404 });
     }
 
-    // Forward the body as-is — the app sends a valid Anthropic request payload
+    const deviceId = request.headers.get("X-Device-ID") ?? "unknown";
+    const licenseKey = request.headers.get("X-License-Key");
+
+    // Gate: license key or trial
+    try {
+      if (licenseKey) {
+        const isValid = await validateLicense(licenseKey, env);
+        if (!isValid) {
+          return json({ error: "license_invalid", message: "License key is not valid." }, 403);
+        }
+        await enforceRateLimit(deviceId, LICENSED_DAILY_LIMIT, env);
+      } else {
+        await enforceTrial(deviceId, env);
+        await enforceRateLimit(deviceId, TRIAL_DAILY_LIMIT, env);
+      }
+    } catch (err: unknown) {
+      const e = err as { status?: number; error?: string; message?: string };
+      if (e.status) {
+        return json({ error: e.error, message: e.message }, e.status);
+      }
+      throw err;
+    }
+
+    // Forward body to Anthropic
     let body: string;
     try {
       body = await request.text();
@@ -31,7 +161,6 @@ export default {
       return new Response("Bad Request", { status: 400 });
     }
 
-    // Proxy to Anthropic with our API key
     const anthropicResponse = await fetch(ANTHROPIC_MESSAGES_URL, {
       method: "POST",
       headers: {
@@ -42,13 +171,10 @@ export default {
       body,
     });
 
-    // Return Anthropic's response verbatim (same status, same body)
     const responseBody = await anthropicResponse.text();
     return new Response(responseBody, {
       status: anthropicResponse.status,
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
     });
   },
 };

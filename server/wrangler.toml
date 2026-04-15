@@ -3,6 +3,10 @@ main = "src/index.ts"
 compatibility_date = "2024-01-01"
 workers_dev = true
 
+[[kv_namespaces]]
+binding = "SUPERPASTE_KV"
+id = "928b1c1767d94ee9881855b2703f0ca8"
+
 # Production route — update once you've added the custom domain in Cloudflare dashboard
 # [env.production]
 # routes = [{ pattern = "api.superpaste.app/v1/*", zone_name = "superpaste.app" }]

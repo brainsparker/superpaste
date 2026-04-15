@@ -72,7 +72,10 @@ final class LLMService {
 
     enum LLMError: LocalizedError {
         case networkError(Error)
-        case rateLimited
+        case rateLimited        // Anthropic-side 429
+        case dailyLimitReached  // Our 429 — daily cap hit
+        case trialExpired       // 402 — trial over, needs license
+        case licenseInvalid     // 403 — bad license key
         case serverError(Int)
         case timeout
         case invalidResponse
@@ -85,6 +88,12 @@ final class LLMService {
                 return "Network error. Check your connection."
             case .rateLimited:
                 return "Rate limited. Try again in a moment."
+            case .dailyLimitReached:
+                return "Daily limit reached. Resets at midnight."
+            case .trialExpired:
+                return "Your free trial has ended."
+            case .licenseInvalid:
+                return "License key is not valid."
             case .serverError(let code):
                 return "Server error (\(code)). Try again."
             case .timeout:
@@ -104,6 +113,12 @@ final class LLMService {
                 return "Check your internet connection"
             case .rateLimited:
                 return "Too many requests, try again soon"
+            case .dailyLimitReached:
+                return "Daily limit reached. Resets at midnight."
+            case .trialExpired:
+                return "Trial ended — enter your license key"
+            case .licenseInvalid:
+                return "License key not valid"
             case .serverError:
                 return "Server error, try again"
             case .timeout:
@@ -127,10 +142,11 @@ final class LLMService {
         contentParts.append(.image(base64Data: base64Image, mediaType: "image/png"))
         contentParts.append(.text(buildTextPrompt(context: context)))
 
+        let personalContext = UserDefaults.standard.string(forKey: "personalContext") ?? ""
         let request = VisionRequest(
             model: "claude-sonnet-4-20250514",
             max_tokens: APIConfig.maxTokens,
-            system: APIConfig.systemPrompt,
+            system: APIConfig.buildSystemPrompt(personalContext: personalContext),
             messages: [
                 .init(role: "user", content: contentParts)
             ]
@@ -143,6 +159,10 @@ final class LLMService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
+        if let licenseKey = UserDefaults.standard.string(forKey: "licenseKey"), !licenseKey.isEmpty {
+            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
+        }
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
 
         do {
@@ -169,7 +189,16 @@ final class LLMService {
         switch httpResponse.statusCode {
         case 200...299:
             break
+        case 402:
+            throw LLMError.trialExpired
+        case 403:
+            throw LLMError.licenseInvalid
         case 429:
+            // Distinguish our rate limit (error: "rate_limited") from Anthropic's 429
+            if let errorBody = try? JSONDecoder().decode(WorkerErrorResponse.self, from: data),
+               errorBody.error == "rate_limited" {
+                throw LLMError.dailyLimitReached
+            }
             throw LLMError.rateLimited
         default:
             throw LLMError.serverError(httpResponse.statusCode)
@@ -197,7 +226,36 @@ final class LLMService {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
+    // MARK: - License Validation
+
+    func validateLicense(_ key: String) async throws -> Bool {
+        guard let url = URL(string: APIConfig.validateLicenseURL) else { return false }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
+        urlRequest.timeoutInterval = 15
+
+        let body = try JSONEncoder().encode(["key": key])
+        urlRequest.httpBody = body
+
+        let (data, response) = try await URLSession.shared.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+            return false
+        }
+
+        struct ValidateResponse: Decodable { let valid: Bool }
+        let result = try JSONDecoder().decode(ValidateResponse.self, from: data)
+        return result.valid
+    }
+
     // MARK: - Private
+
+    private struct WorkerErrorResponse: Decodable {
+        let error: String?
+    }
 
     private func buildTextPrompt(context: ScreenCaptureService.CapturedContext) -> String {
         var parts: [String] = []

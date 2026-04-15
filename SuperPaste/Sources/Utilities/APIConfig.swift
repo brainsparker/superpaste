@@ -7,8 +7,10 @@ enum APIConfig {
     /// SuperPaste proxy endpoint — Anthropic auth lives server-side.
     #if DEBUG
     static let baseURL = "http://localhost:8787/v1/messages"
+    static let validateLicenseURL = "http://localhost:8787/v1/validate-license"
     #else
     static let baseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/messages"
+    static let validateLicenseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/validate-license"
     #endif
 
     // MARK: - Request Configuration
@@ -18,7 +20,16 @@ enum APIConfig {
 
     // MARK: - System Prompt
 
-    static let systemPrompt = """
+    static func buildSystemPrompt(personalContext: String) -> String {
+        let trimmed = personalContext.trimmingCharacters(in: .whitespacesAndNewlines)
+        let contextSection = trimmed.isEmpty ? "" : """
+
+
+        ## About the user
+        \(trimmed)
+        """
+
+        return """
         You are SuperPaste, an AI assistant that generates contextually appropriate text based on what the user is looking at.
 
         The user pressed a hotkey while viewing their screen. You will receive a screenshot showing what they're looking at. Your job is to figure out what they need and write it.
@@ -35,9 +46,10 @@ enum APIConfig {
         1. Output ONLY the text to paste—no explanations, no meta-commentary, no markdown formatting unless the context requires it
         2. Match the tone (casual for Slack, professional for email, technical for code)
         3. Be concise unless the context suggests a longer response is needed
-        4. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."
+        4. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."\(contextSection)
 
         ## Output format
         Raw text, ready to paste. Nothing else.
         """
+    }
 }
