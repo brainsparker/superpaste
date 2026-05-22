@@ -5,12 +5,11 @@ enum APIConfig {
     // MARK: - Endpoint
 
     /// SuperPaste proxy endpoint — Anthropic auth lives server-side.
+    /// Slated for deletion in Phase 3 (LocalInferenceService replacement).
     #if DEBUG
     static let baseURL = "http://localhost:8787/v1/messages"
-    static let validateLicenseURL = "http://localhost:8787/v1/validate-license"
     #else
     static let baseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/messages"
-    static let validateLicenseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/validate-license"
     #endif
 
     // MARK: - Request Configuration
@@ -20,7 +19,11 @@ enum APIConfig {
 
     // MARK: - System Prompt
 
-    static func buildSystemPrompt(personalContext: String) -> String {
+    static func buildSystemPrompt(
+        personalContext: String,
+        tone: ResponseTone = .matchContext,
+        length: ResponseLength = .balanced
+    ) -> String {
         let trimmed = personalContext.trimmingCharacters(in: .whitespacesAndNewlines)
         let contextSection = trimmed.isEmpty ? "" : """
 
@@ -42,11 +45,15 @@ enum APIConfig {
         - Code visible \u{2192} Write the next logical code
         - Error message visible \u{2192} Explain or suggest a fix
 
+        ## Tone
+        \(tone.promptFragment)
+
+        ## Length
+        \(length.promptFragment)
+
         ## Rules
         1. Output ONLY the text to paste\u{2014}no explanations, no meta-commentary, no markdown formatting unless the context requires it
-        2. Match the tone (casual for Slack, professional for email, technical for code)
-        3. Be concise unless the context suggests a longer response is needed
-        4. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."\(contextSection)
+        2. If you truly can't figure out what's needed, output: "I couldn't determine what you need from this screen. Try positioning your cursor where you want to type."\(contextSection)
 
         ## Output format
         Raw text, ready to paste. Nothing else.

@@ -9,7 +9,6 @@ struct SettingsPage: View {
     @AppStorage("playSoundOnReady") private var playSoundOnReady = false
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("personalContext") private var personalContext = ""
-    @AppStorage("licenseKey") private var storedLicenseKey = ""
     @AppStorage("responseTone") private var responseTone: ResponseTone = .matchContext
     @AppStorage("responseLength") private var responseLength: ResponseLength = .balanced
 
@@ -58,7 +57,7 @@ struct SettingsPage: View {
             Text("License")
                 .font(.headline)
 
-            if !storedLicenseKey.isEmpty {
+            if appState.isLicensed {
                 // Licensed state
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
