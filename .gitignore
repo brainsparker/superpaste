@@ -1,1 +1,29 @@
+# Build artifacts
+SuperPaste.app/
+SuperPaste/.build/
+SuperPaste/.swiftpm/
+*.dmg
+*.zip
+*.xcodeproj/
+
+# Local checkouts (historical — leftover from older SwiftPM resolves)
 SuperPaste/.build/checkouts/HotKey/
+
+# Spike test fixtures (transient, never check in)
+SuperPaste/MLXSpike/test.*
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+*.swp
+
+# Cloudflare Workers (slated for deletion in Phase 5)
+.wrangler/
+server/node_modules/
+server/.wrangler/
+
+# Local secrets — never commit
+.env
+.env.local
+*.pem
+*.p12

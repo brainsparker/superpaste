@@ -143,10 +143,21 @@ final class LLMService {
         contentParts.append(.text(buildTextPrompt(context: context)))
 
         let personalContext = UserDefaults.standard.string(forKey: "personalContext") ?? ""
+        let tone = ResponseTone(
+            rawValue: UserDefaults.standard.string(forKey: "responseTone") ?? ""
+        ) ?? .matchContext
+        let length = ResponseLength(
+            rawValue: UserDefaults.standard.string(forKey: "responseLength") ?? ""
+        ) ?? .balanced
+
         let request = VisionRequest(
             model: "claude-sonnet-4-20250514",
             max_tokens: APIConfig.maxTokens,
-            system: APIConfig.buildSystemPrompt(personalContext: personalContext),
+            system: APIConfig.buildSystemPrompt(
+                personalContext: personalContext,
+                tone: tone,
+                length: length
+            ),
             messages: [
                 .init(role: "user", content: contentParts)
             ]
@@ -160,7 +171,7 @@ final class LLMService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
-        if let licenseKey = UserDefaults.standard.string(forKey: "licenseKey"), !licenseKey.isEmpty {
+        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
             urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
         }
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
@@ -224,31 +235,6 @@ final class LLMService {
         }
 
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    // MARK: - License Validation
-
-    func validateLicense(_ key: String) async throws -> Bool {
-        guard let url = URL(string: APIConfig.validateLicenseURL) else { return false }
-
-        var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
-        urlRequest.timeoutInterval = 15
-
-        let body = try JSONEncoder().encode(["key": key])
-        urlRequest.httpBody = body
-
-        let (data, response) = try await URLSession.shared.data(for: urlRequest)
-
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            return false
-        }
-
-        struct ValidateResponse: Decodable { let valid: Bool }
-        let result = try JSONDecoder().decode(ValidateResponse.self, from: data)
-        return result.valid
     }
 
     // MARK: - Private

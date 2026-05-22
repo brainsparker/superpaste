@@ -31,6 +31,9 @@ final class AppState: ObservableObject {
     /// Days remaining in free trial. nil when licensed (no badge shown).
     @Published private(set) var trialDaysRemaining: Int? = nil
 
+    /// Whether a valid license is stored locally (Keychain). Drives UI in Settings.
+    @Published private(set) var isLicensed: Bool = LicenseService.shared.hasLocalLicense
+
     /// Activation status shown in TrialExpiredView / Settings
     @Published var licenseActivationState: LicenseActivationState = .idle
 
@@ -67,6 +70,7 @@ final class AppState: ObservableObject {
     // MARK: - Initialization
 
     init() {
+        LicenseService.shared.migrateFromUserDefaultsIfNeeded()
         setupHotkeySubscription()
         setupPermissionObserver()
         updateState()
@@ -142,8 +146,10 @@ final class AppState: ObservableObject {
     }
 
     private func computeTrialDaysRemaining() {
-        // If licensed, no badge needed
-        if let key = UserDefaults.standard.string(forKey: "licenseKey"), !key.isEmpty {
+        // Keep isLicensed in sync with the underlying Keychain state
+        isLicensed = LicenseService.shared.hasLocalLicense
+
+        if isLicensed {
             trialDaysRemaining = nil
             return
         }
@@ -294,16 +300,13 @@ final class AppState: ObservableObject {
 
         Task {
             do {
-                let valid = try await llmService.validateLicense(trimmed)
-                if valid {
-                    UserDefaults.standard.set(trimmed, forKey: "licenseKey")
-                    UserDefaults.standard.removeObject(forKey: "trialExpiredLocally")
-                    licenseActivationState = .success
-                    computeTrialDaysRemaining()
-                    updateMainWindowState()
-                } else {
-                    licenseActivationState = .failure("License key not recognized.")
-                }
+                try await LicenseService.shared.activate(trimmed)
+                UserDefaults.standard.removeObject(forKey: "trialExpiredLocally")
+                licenseActivationState = .success
+                computeTrialDaysRemaining()
+                updateMainWindowState()
+            } catch LicenseService.LicenseError.invalidKey {
+                licenseActivationState = .failure("License key not recognized.")
             } catch {
                 licenseActivationState = .failure("Couldn't connect. Check your internet connection.")
             }
@@ -311,7 +314,7 @@ final class AppState: ObservableObject {
     }
 
     func removeLicense() {
-        UserDefaults.standard.removeObject(forKey: "licenseKey")
+        LicenseService.shared.deactivate()
         licenseActivationState = .idle
         computeTrialDaysRemaining()
         updateMainWindowState()
