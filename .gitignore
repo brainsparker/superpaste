@@ -1,26 +1,5 @@
-# Build artifacts
+node_modules/
+.dev.vars
+dist/
 SuperPaste.app/
-SuperPaste/.build/
-SuperPaste/.swiftpm/
-*.dmg
-*.zip
-*.xcodeproj/
-
-# Local checkouts (historical — leftover from older SwiftPM resolves)
-SuperPaste/.build/checkouts/HotKey/
-
-# Editor / OS noise
-.DS_Store
-.vscode/
-*.swp
-
-# Cloudflare Worker local state
-.wrangler/
-server/node_modules/
 server/.wrangler/
-
-# Local secrets — never commit
-.env
-.env.local
-*.pem
-*.p12

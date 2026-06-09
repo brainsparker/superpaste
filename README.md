@@ -33,7 +33,7 @@ Buy a lifetime license, download the signed/notarized DMG, drag SuperPaste to Ap
 ### From source (free)
 
 ```bash
-git clone https://github.com/brianjsparker/superpaste
+git clone https://github.com/brainsparker/superpaste
 cd superpaste
 
 # One-time toolchain check
