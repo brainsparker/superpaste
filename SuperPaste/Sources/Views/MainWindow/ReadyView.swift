@@ -45,9 +45,9 @@ struct ReadyView: View {
 
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Image(systemName: "wand.and.stars")
-                .font(.system(size: 48))
-                .foregroundStyle(.blue)
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 72, height: 72)
             Text("SuperPaste")
                 .font(.title.bold())
             HStack(spacing: 6) {
@@ -95,7 +95,7 @@ struct ReadyView: View {
         VStack(alignment: .leading, spacing: 16) {
             if appState.useCount > 0 {
                 HStack(spacing: 8) {
-                    Image(systemName: "sparkles").foregroundColor(.blue)
+                    Image(systemName: "option").foregroundColor(.blue)
                     Text("Used \(appState.useCount) time\(appState.useCount == 1 ? "" : "s")")
                         .font(.subheadline).foregroundColor(.secondary)
                 }
@@ -177,11 +177,8 @@ struct ReadyView: View {
                 }
             }
             .font(.subheadline)
-            HStack(spacing: 4) {
-                Image(systemName: "brain").font(.caption2)
-                Text("Powered by Claude AI")
-            }
-            .font(.caption).foregroundColor(.secondary)
+            Text("Powered by Claude")
+                .font(.caption).foregroundColor(.secondary)
         }
     }
 
@@ -193,11 +190,16 @@ struct KeyCap: View {
     let label: String
     var body: some View {
         Text(label)
-            .font(.system(size: 13, weight: .medium, design: .rounded))
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(RoundedRectangle(cornerRadius: 6).fill(Color(nsColor: .controlBackgroundColor)))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color(nsColor: .separatorColor), lineWidth: 1))
-            .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+            .font(.system(size: 13, weight: .semibold, design: .rounded))
+            .padding(.horizontal, 14).padding(.vertical, 9)
+            .background(
+                // Hard 2pt bottom edge gives the chunky keycap depth used
+                // across the brand (site demo key, app icon).
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+                    .shadow(color: .black.opacity(0.22), radius: 0, x: 0, y: 2)
+            )
+            .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color(nsColor: .separatorColor), lineWidth: 1))
     }
 }
 

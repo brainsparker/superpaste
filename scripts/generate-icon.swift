@@ -4,6 +4,9 @@
 // Generates the SuperPaste app icon at all required macOS asset catalog sizes
 // and writes the .icns file used by the packaged app.
 //
+// Design: dark macOS squircle (with standard transparent margins) containing
+// a keycap with a glowing blue ⌥V — the brand mark used across the website.
+//
 // Usage: swift scripts/generate-icon.swift
 //
 
@@ -24,6 +27,8 @@ let iconSizes: [(name: String, pixels: Int)] = [
     ("icon_512x512",    512),
     ("icon_512x512@2x", 1024),
 ]
+
+let brandBlue = CGColor(red: 0.10, green: 0.50, blue: 0.95, alpha: 1.0)
 
 // MARK: - Icon Generator
 
@@ -47,174 +52,163 @@ func generateIcon(pixelSize: Int) -> Data? {
     NSGraphicsContext.saveGraphicsState()
     NSGraphicsContext.current = gfx
     let ctx = gfx.cgContext
-
-    // 1. Background gradient
     let cs = CGColorSpaceCreateDeviceRGB()
 
-    let bgColors = [
-        CGColor(red: 0.02, green: 0.25, blue: 0.47, alpha: 1.0),
-        CGColor(red: 0.00, green: 0.53, blue: 0.72, alpha: 1.0),
-        CGColor(red: 0.18, green: 0.78, blue: 0.65, alpha: 1.0),
-    ] as CFArray
+    // 1. Squircle tile on the standard macOS icon grid (~80.5% of canvas,
+    //    transparent margin all around).
+    let tileSize = s * 0.805
+    let tile = CGRect(
+        x: (s - tileSize) / 2,
+        y: (s - tileSize) / 2,
+        width: tileSize,
+        height: tileSize
+    )
+    let tilePath = CGPath(
+        roundedRect: tile,
+        cornerWidth: tileSize * 0.225,
+        cornerHeight: tileSize * 0.225,
+        transform: nil
+    )
 
-    if let bg = CGGradient(colorsSpace: cs, colors: bgColors, locations: [0.0, 0.50, 1.0]) {
+    // Drop shadow behind the tile (subtle, like system icons)
+    ctx.saveGState()
+    ctx.setShadow(
+        offset: CGSize(width: 0, height: -s * 0.008),
+        blur: s * 0.02,
+        color: CGColor(red: 0, green: 0, blue: 0, alpha: 0.30)
+    )
+    ctx.setFillColor(CGColor(red: 0.06, green: 0.06, blue: 0.07, alpha: 1.0))
+    ctx.addPath(tilePath)
+    ctx.fillPath()
+    ctx.restoreGState()
+
+    // Everything else clips to the tile
+    ctx.saveGState()
+    ctx.addPath(tilePath)
+    ctx.clip()
+
+    // 2. Near-black vertical gradient
+    let bgColors = [
+        CGColor(red: 0.15, green: 0.15, blue: 0.17, alpha: 1.0),
+        CGColor(red: 0.04, green: 0.04, blue: 0.05, alpha: 1.0),
+    ] as CFArray
+    if let bg = CGGradient(colorsSpace: cs, colors: bgColors, locations: [0.0, 1.0]) {
         ctx.drawLinearGradient(
             bg,
-            start: CGPoint(x: 0, y: 0),                // bottom-left
-            end:   CGPoint(x: s, y: s),                 // top-right
-            options: [.drawsAfterEndLocation, .drawsBeforeStartLocation]
-        )
-    }
-
-    // 2. Soft depth glows
-    let glowColors = [
-        CGColor(red: 0.88, green: 1.00, blue: 0.94, alpha: 0.22),
-        CGColor(red: 0.88, green: 1.00, blue: 0.94, alpha: 0.0),
-    ] as CFArray
-    if let glow = CGGradient(colorsSpace: cs, colors: glowColors, locations: [0.0, 1.0]) {
-        ctx.drawRadialGradient(
-            glow,
-            startCenter: CGPoint(x: s * 0.58, y: s * 0.60),
-            startRadius: 0,
-            endCenter:   CGPoint(x: s * 0.58, y: s * 0.60),
-            endRadius:   s * 0.58,
+            start: CGPoint(x: s / 2, y: s),
+            end:   CGPoint(x: s / 2, y: 0),
             options: []
         )
     }
 
-    // 3. Paste mark
-    drawPasteMark(ctx: ctx, size: s, pixelSize: pixelSize)
+    // 3. Soft blue ambience behind the keycap
+    let ambience = [
+        CGColor(red: 0.10, green: 0.50, blue: 0.95, alpha: 0.28),
+        CGColor(red: 0.10, green: 0.50, blue: 0.95, alpha: 0.0),
+    ] as CFArray
+    if let glow = CGGradient(colorsSpace: cs, colors: ambience, locations: [0.0, 1.0]) {
+        ctx.drawRadialGradient(
+            glow,
+            startCenter: CGPoint(x: s * 0.5, y: s * 0.52),
+            startRadius: 0,
+            endCenter:   CGPoint(x: s * 0.5, y: s * 0.52),
+            endRadius:   s * 0.45,
+            options: []
+        )
+    }
 
-    // 4. Sparkles
-    drawSparkle(
-        ctx: ctx,
-        center: CGPoint(x: s * 0.76, y: s * 0.79),
-        outerR: s * 0.055,
-        innerR: s * 0.017,
-        alpha: 0.95
-    )
-
+    // 4. Keycap + glyph (keycap only at sizes where it can render cleanly)
     if pixelSize >= 48 {
-        drawSparkle(
-            ctx: ctx,
-            center: CGPoint(x: s * 0.28, y: s * 0.78),
-            outerR: s * 0.030,
-            innerR: s * 0.010,
-            alpha: 0.60
-        )
+        drawKeycap(ctx: ctx, size: s, colorSpace: cs)
+        drawGlyph(size: s, fontSize: s * 0.235, center: CGPoint(x: s * 0.5, y: s * 0.515))
+    } else {
+        // Tiny sizes: just the glyph, as large as legibility allows
+        drawGlyph(size: s, fontSize: s * 0.42, center: CGPoint(x: s * 0.5, y: s * 0.5))
     }
 
-    if pixelSize >= 256 {
-        drawSparkle(
-            ctx: ctx,
-            center: CGPoint(x: s * 0.82, y: s * 0.48),
-            outerR: s * 0.020,
-            innerR: s * 0.006,
-            alpha: 0.40
-        )
-    }
+    // 5. Hairline inner border on the tile
+    ctx.addPath(tilePath)
+    ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.07))
+    ctx.setLineWidth(max(1.0, s * 0.006))
+    ctx.strokePath()
+
+    ctx.restoreGState() // tile clip
 
     NSGraphicsContext.restoreGraphicsState()
     return rep.representation(using: .png, properties: [:])
 }
 
-// MARK: - Paste Mark Drawing
+// MARK: - Keycap
 
-func drawPasteMark(ctx: CGContext, size s: CGFloat, pixelSize: Int) {
-    ctx.saveGState()
-    ctx.setShadow(
-        offset: CGSize(width: 0, height: -s * 0.018),
-        blur: s * 0.045,
-        color: CGColor(red: 0.02, green: 0.08, blue: 0.14, alpha: 0.38)
-    )
+func drawKeycap(ctx: CGContext, size s: CGFloat, colorSpace cs: CGColorSpace) {
+    let capW = s * 0.50
+    let capH = s * 0.38
+    let capX = (s - capW) / 2
+    let capY = (s - capH) / 2 + s * 0.01
+    let corner = s * 0.075
+    let depth = s * 0.022
 
-    let board = CGRect(x: s * 0.25, y: s * 0.22, width: s * 0.50, height: s * 0.56)
-    let boardPath = CGPath(
-        roundedRect: board,
-        cornerWidth: s * 0.070,
-        cornerHeight: s * 0.070,
-        transform: nil
-    )
-    ctx.setFillColor(CGColor(red: 0.94, green: 0.99, blue: 1.00, alpha: 1.0))
-    ctx.addPath(boardPath)
+    // Keycap base (the darker "side" visible below the top face)
+    let base = CGRect(x: capX, y: capY - depth, width: capW, height: capH)
+    ctx.setFillColor(CGColor(red: 0.02, green: 0.02, blue: 0.03, alpha: 1.0))
+    ctx.addPath(CGPath(roundedRect: base, cornerWidth: corner, cornerHeight: corner, transform: nil))
     ctx.fillPath()
 
+    // Keycap top face
+    let face = CGRect(x: capX, y: capY, width: capW, height: capH)
+    let facePath = CGPath(roundedRect: face, cornerWidth: corner, cornerHeight: corner, transform: nil)
+
+    ctx.saveGState()
+    ctx.addPath(facePath)
+    ctx.clip()
+    let faceColors = [
+        CGColor(red: 0.20, green: 0.20, blue: 0.23, alpha: 1.0),
+        CGColor(red: 0.11, green: 0.11, blue: 0.13, alpha: 1.0),
+    ] as CFArray
+    if let g = CGGradient(colorsSpace: cs, colors: faceColors, locations: [0.0, 1.0]) {
+        ctx.drawLinearGradient(
+            g,
+            start: CGPoint(x: s / 2, y: face.maxY),
+            end:   CGPoint(x: s / 2, y: face.minY),
+            options: []
+        )
+    }
     ctx.restoreGState()
 
-    let clip = CGRect(x: s * 0.38, y: s * 0.72, width: s * 0.24, height: s * 0.105)
-    let clipPath = CGPath(
-        roundedRect: clip,
-        cornerWidth: s * 0.040,
-        cornerHeight: s * 0.040,
-        transform: nil
-    )
-    ctx.setFillColor(CGColor(red: 0.80, green: 0.96, blue: 1.00, alpha: 1.0))
-    ctx.addPath(clipPath)
-    ctx.fillPath()
-
-    ctx.setStrokeColor(CGColor(red: 0.03, green: 0.34, blue: 0.54, alpha: 0.92))
-    ctx.setLineWidth(max(1.0, s * 0.025))
-    ctx.setLineCap(.round)
-    ctx.setLineJoin(.round)
-
-    if pixelSize >= 64 {
-        drawLine(ctx: ctx, from: CGPoint(x: s * 0.35, y: s * 0.61), to: CGPoint(x: s * 0.65, y: s * 0.61))
-        drawLine(ctx: ctx, from: CGPoint(x: s * 0.35, y: s * 0.51), to: CGPoint(x: s * 0.56, y: s * 0.51))
-    }
-
-    let cursor = CGMutablePath()
-    cursor.move(to: CGPoint(x: s * 0.40, y: s * 0.39))
-    cursor.addLine(to: CGPoint(x: s * 0.50, y: s * 0.29))
-    cursor.addLine(to: CGPoint(x: s * 0.67, y: s * 0.47))
-    cursor.addLine(to: CGPoint(x: s * 0.57, y: s * 0.48))
-    cursor.addLine(to: CGPoint(x: s * 0.62, y: s * 0.61))
-    ctx.addPath(cursor)
+    // Keycap border
+    ctx.addPath(facePath)
+    ctx.setStrokeColor(CGColor(red: 1, green: 1, blue: 1, alpha: 0.12))
+    ctx.setLineWidth(max(1.0, s * 0.007))
     ctx.strokePath()
 }
 
-func drawLine(ctx: CGContext, from: CGPoint, to: CGPoint) {
-    let path = CGMutablePath()
-    path.move(to: from)
-    path.addLine(to: to)
-    ctx.addPath(path)
-    ctx.strokePath()
-}
+// MARK: - Glyph
 
-// MARK: - Sparkle Drawing
+func drawGlyph(size s: CGFloat, fontSize: CGFloat, center: CGPoint) {
+    let font = NSFont.systemFont(ofSize: fontSize, weight: .bold)
+    let attrs: [NSAttributedString.Key: Any] = [
+        .font: font,
+        .foregroundColor: NSColor(cgColor: brandBlue) ?? .systemBlue,
+        .kern: fontSize * 0.06,
+    ]
+    let text = NSAttributedString(string: "⌥V", attributes: attrs)
+    let textSize = text.size()
 
-func drawSparkle(
-    ctx: CGContext,
-    center: CGPoint,
-    outerR: CGFloat,
-    innerR: CGFloat,
-    alpha: CGFloat
-) {
+    guard let ctx = NSGraphicsContext.current?.cgContext else { return }
     ctx.saveGState()
-
-    // Glow halo (shadow on the fill)
     ctx.setShadow(
         offset: .zero,
-        blur: outerR * 0.9,
-        color: CGColor(red: 0.65, green: 0.78, blue: 1.0, alpha: alpha * 0.55)
+        blur: fontSize * 0.45,
+        color: CGColor(red: 0.10, green: 0.50, blue: 0.95, alpha: 0.85)
     )
-
-    // 4-pointed star path
-    let path = CGMutablePath()
-    for i in 0..<8 {
-        let angle = CGFloat(i) * .pi / 4.0 - .pi / 2.0
-        let r = i % 2 == 0 ? outerR : innerR
-        let pt = CGPoint(
-            x: center.x + cos(angle) * r,
-            y: center.y + sin(angle) * r
-        )
-        if i == 0 { path.move(to: pt) } else { path.addLine(to: pt) }
-    }
-    path.closeSubpath()
-
-    ctx.setFillColor(CGColor(red: 1.0, green: 1.0, blue: 1.0, alpha: alpha))
-    ctx.addPath(path)
-    ctx.fillPath()
-
+    // Vertically center on the glyph's visual bounds (cap height), not the
+    // full line box, so the mark doesn't sit low in the keycap.
+    let visualMidOffset = font.capHeight / 2 + font.descender
+    let origin = CGPoint(
+        x: center.x - textSize.width / 2,
+        y: center.y - textSize.height / 2 - visualMidOffset / 2
+    )
+    text.draw(at: origin)
     ctx.restoreGState()
 }
 
