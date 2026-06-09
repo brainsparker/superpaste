@@ -22,7 +22,7 @@ struct AboutPage: View {
             }
 
             // Tagline
-            Text("Sees your screen. Writes what you need.")
+            Text("Sees your active window. Writes what you need.")
                 .font(.body.weight(.medium))
                 .foregroundColor(.secondary)
 
@@ -31,7 +31,7 @@ struct AboutPage: View {
 
             // Description
 
-            Text("Press \u{2325}V anywhere \u{2014} SuperPaste reads your screen, understands the context, and types the right response. No copying, no prompting, no second step.")
+            Text("Press \u{2325}V anywhere \u{2014} SuperPaste uses your active window, understands the context, and types the right response. No copying, no prompting, no second step.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)

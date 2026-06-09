@@ -1,10 +1,17 @@
 import SwiftUI
+import Darwin
 
 /// SuperPaste main application entry point
 @main
 struct SuperPasteApp: App {
     @StateObject private var appState = AppState()
     @State private var hudManager: HUDManager?
+
+    init() {
+        if CommandLine.arguments.contains("--permissions-status") {
+            exit(PermissionStatusReporter.printStatus())
+        }
+    }
 
     var body: some Scene {
         // Main window

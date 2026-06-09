@@ -4,10 +4,54 @@ set -e
 REPO="$(cd "$(dirname "$0")" && pwd)"
 SPM="$REPO/SuperPaste"
 APP="$REPO/SuperPaste.app"
+RESET_ONBOARDING=false
+RESET_PERMISSIONS=false
+
+usage() {
+    cat <<EOF
+Usage: ./build.sh [--fresh] [--fresh-permissions]
+
+Options:
+  --fresh              Reset local onboarding defaults before launching.
+  --fresh-permissions  Reset onboarding defaults plus Screen Recording and
+                       Accessibility TCC grants before launching.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --fresh)
+            RESET_ONBOARDING=true
+            shift
+            ;;
+        --fresh-permissions)
+            RESET_ONBOARDING=true
+            RESET_PERMISSIONS=true
+            shift
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1" >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+done
+
+if [[ "${RESET_ONBOARDING}" == true ]]; then
+    RESET_ARGS=()
+    if [[ "${RESET_PERMISSIONS}" == true ]]; then
+        RESET_ARGS+=(--permissions)
+    fi
+    "$REPO/bin/reset-onboarding.sh" "${RESET_ARGS[@]}"
+fi
 
 echo "Building..."
 cd "$SPM"
-swift build -c release
+swift build -c release --product SuperPaste
 
 echo "Packaging..."
 rm -rf "$APP"

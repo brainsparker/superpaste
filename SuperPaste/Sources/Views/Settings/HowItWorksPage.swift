@@ -10,13 +10,13 @@ struct HowItWorksPage: View {
                     .font(.title2.bold())
 
                 // Description
-                Text("SuperPaste sees your screen and writes what you need. No copying, no prompting, no app-switching.")
+                Text("SuperPaste sees your active window and writes what you need. No copying, no prompting, no app-switching.")
                     .foregroundColor(.secondary)
 
                 // Steps
                 VStack(alignment: .leading, spacing: 16) {
                     StepRow(number: 1, title: "Place your cursor where you want text", description: "Email, Slack, a form, a document \u{2014} anywhere.")
-                    StepRow(number: 2, title: "Press \u{2325}V", description: "SuperPaste takes a snapshot and reads the room.")
+                    StepRow(number: 2, title: "Press \u{2325}V", description: "SuperPaste takes one active-window snapshot and reads the room.")
                     StepRow(number: 3, title: "Text appears automatically", description: "No \u{2318}V needed. It just arrives.")
                 }
                 .padding()
@@ -38,7 +38,7 @@ struct HowItWorksPage: View {
                     ScenarioCard(
                         icon: "bubble.left.and.bubble.right.fill",
                         title: "Answer messages",
-                        detail: "Slack, Teams, iMessage \u{2014} SuperPaste reads the thread and writes your response."
+                        detail: "Slack, Teams, iMessage \u{2014} SuperPaste uses the visible thread to write your response."
                     )
                     ScenarioCard(
                         icon: "chevron.left.forwardslash.chevron.right",

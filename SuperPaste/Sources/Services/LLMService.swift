@@ -122,7 +122,7 @@ final class LLMService {
             case .serverError:
                 return "Server hiccup \u{2014} try again in a few seconds."
             case .timeout:
-                return "Took too long \u{2014} try with a simpler screen."
+                return "Took too long \u{2014} try with a simpler window."
             case .invalidResponse, .emptyResponse:
                 return "Got an unexpected response \u{2014} try again."
             case .imageEncodingFailed:

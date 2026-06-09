@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Settings page showing permission status and controls.
 struct PermissionsView: View {
-    @StateObject private var permissionManager = PermissionManager.shared
+    @EnvironmentObject var appState: AppState
 
     var body: some View {
         ScrollView {
@@ -18,26 +18,29 @@ struct PermissionsView: View {
                     icon: "rectangle.inset.filled.and.cursorarrow",
                     title: "Screen Recording",
                     description: "SuperPaste captures your active window when you press Option V. Screenshots are only taken on-demand and never stored.",
-                    isEnabled: permissionManager.screenRecordingEnabled,
-                    onOpen: { permissionManager.openScreenRecordingSettings() },
-                    onRecheck: { permissionManager.checkPermission() }
+                    isEnabled: appState.screenRecordingEnabled,
+                    showsRelaunchHelp: appState.shouldOfferPermissionRelaunch && !appState.screenRecordingEnabled,
+                    onOpen: { appState.openScreenRecordingSettings() },
+                    onRecheck: { appState.recheckPermission() },
+                    onRelaunch: { appState.relaunchForPermissions() }
                 )
 
                 permissionCard(
                     icon: "figure.arms.open",
                     title: "Accessibility",
                     description: "SuperPaste types into your focused field automatically. It only sends a paste keystroke (\u{2318}V) — it does not read text from other apps.",
-                    isEnabled: permissionManager.accessibilityEnabled,
-                    onOpen: { permissionManager.openAccessibilitySettings() },
-                    onRecheck: { permissionManager.checkAccessibilityPermission() }
+                    isEnabled: appState.accessibilityEnabled,
+                    showsRelaunchHelp: false,
+                    onOpen: { appState.openAccessibilitySettings() },
+                    onRecheck: { appState.recheckPermission() },
+                    onRelaunch: {}
                 )
             }
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onAppear {
-            permissionManager.checkPermission()
-            permissionManager.checkAccessibilityPermission()
+            appState.recheckPermission()
         }
     }
 
@@ -49,8 +52,10 @@ struct PermissionsView: View {
         title: String,
         description: String,
         isEnabled: Bool,
+        showsRelaunchHelp: Bool,
         onOpen: @escaping () -> Void,
-        onRecheck: @escaping () -> Void
+        onRecheck: @escaping () -> Void,
+        onRelaunch: @escaping () -> Void
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -115,6 +120,34 @@ struct PermissionsView: View {
                         .buttonStyle(.bordered)
                     }
                 }
+            }
+
+            if showsRelaunchHelp {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("If System Settings already shows SuperPaste enabled, relaunch once to finish applying Screen Recording.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Button {
+                        onRelaunch()
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Relaunch SuperPaste")
+                        }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.orange.opacity(0.08))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.orange.opacity(0.25), lineWidth: 1)
+                )
             }
         }
         .padding(16)

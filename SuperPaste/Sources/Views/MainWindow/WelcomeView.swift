@@ -45,7 +45,7 @@ struct WelcomeView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Sees your screen. Writes what you need.")
+            Text("Sees your active window. Writes what you need.")
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.secondary)
 
@@ -96,7 +96,7 @@ struct WelcomeView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("Private by design")
                     .font(.caption.weight(.semibold))
-                Text("One screenshot, on demand, sent to Claude AI and immediately discarded. No recording, no storage, no continuous monitoring.")
+                Text("One active-window screenshot, on demand, sent to the SuperPaste backend and immediately discarded. No recording, no storage, no continuous monitoring.")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }

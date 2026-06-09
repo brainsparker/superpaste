@@ -9,10 +9,10 @@ struct ReadyView: View {
 
     private let tips = [
         "Works in any app — email, Slack, code editors, forms, documents.",
-        "SuperPaste matches the tone of what’s on screen. Casual for chat, professional for email.",
+        "SuperPaste matches the tone of the active window. Casual for chat, professional for email.",
         "Stuck on an error? Press Option V while looking at it for an instant explanation.",
         "Writing a doc? Place your cursor at the end and press Option V to continue your thought.",
-        "SuperPaste only sees your active window — nothing else on your screen.",
+        "SuperPaste only captures your active window when you press Option V.",
     ]
 
     var body: some View {

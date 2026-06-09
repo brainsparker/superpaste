@@ -100,41 +100,4 @@ final class ScreenCaptureService {
         )
     }
 
-    /// Capture the entire screen (all displays).
-    /// Falls back to this if window capture fails.
-    func captureFullScreen() -> CapturedContext? {
-        guard let screenshot = CGWindowListCreateImage(
-            CGRect.infinite,
-            .optionOnScreenOnly,
-            kCGNullWindowID,
-            [.bestResolution]
-        ) else {
-            return nil
-        }
-
-        guard screenshot.width > 0 && screenshot.height > 0 else {
-            return nil
-        }
-
-        // Get frontmost app info
-        let frontmostApp = NSWorkspace.shared.frontmostApplication
-        let appName = frontmostApp?.localizedName
-
-        return CapturedContext(
-            screenshot: screenshot,
-            appName: appName,
-            windowTitle: nil
-        )
-    }
-
-    /// Capture with fallback - tries window first, then full screen.
-    func captureWithFallback() -> CapturedContext? {
-        // First try to capture just the frontmost window
-        if let context = capture() {
-            return context
-        }
-
-        // Fall back to full screen capture
-        return captureFullScreen()
-    }
 }

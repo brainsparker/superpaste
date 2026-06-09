@@ -44,6 +44,7 @@ struct SettingsView: View {
                 HowItWorksPage()
             case .permissions:
                 PermissionsView()
+                    .environmentObject(appState)
             case .settings:
                 SettingsPage()
                     .environmentObject(appState)

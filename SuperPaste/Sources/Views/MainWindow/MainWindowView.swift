@@ -12,11 +12,11 @@ struct MainWindowView: View {
                     .environmentObject(appState)
 
             case .permissionRequired:
-                PermissionRequestView()
+                PermissionsSetupView()
                     .environmentObject(appState)
 
             case .accessibilityRequired:
-                AccessibilityRequestView()
+                PermissionsSetupView()
                     .environmentObject(appState)
 
             case .trialExpired:

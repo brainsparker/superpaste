@@ -21,7 +21,7 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>14.0</string>
 
     <!-- Dock app (not menu bar utility) -->
     <key>LSUIElement</key>
@@ -47,7 +47,7 @@
 
     <!-- Screen Recording usage description -->
     <key>NSScreenCaptureUsageDescription</key>
-    <string>SuperPaste needs to capture screenshots to understand what you're looking at and generate helpful responses.</string>
+    <string>SuperPaste needs Screen Recording to capture one active-window screenshot when you press Option V.</string>
 
     <!-- Allow HTTP to localhost for local development -->
     <key>NSAppTransportSecurity</key>

@@ -41,12 +41,24 @@ final class PermissionManager: ObservableObject {
             return true
         }
 
-        // Capability probe: kCGWindowName is only populated when Screen Recording is allowed.
+        // Capability probe: kCGWindowName for other apps is only populated when Screen Recording is allowed.
         let windowList = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
             kCGNullWindowID
         ) as? [[String: Any]] ?? []
-        let hasAccess = windowList.contains { $0[kCGWindowName as String] as? String != nil }
+        let currentPID = getpid()
+        let hasAccess = windowList.contains { window in
+            guard let ownerPID = window[kCGWindowOwnerPID as String] as? Int32,
+                  ownerPID != currentPID,
+                  let layer = window[kCGWindowLayer as String] as? Int,
+                  layer == 0,
+                  let windowName = window[kCGWindowName as String] as? String
+            else {
+                return false
+            }
+
+            return !windowName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
 
         screenRecordingEnabled = hasAccess
         return hasAccess

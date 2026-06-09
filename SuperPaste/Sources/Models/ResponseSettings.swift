@@ -18,7 +18,7 @@ enum ResponseTone: String, CaseIterable, Identifiable {
 
     var description: String {
         switch self {
-        case .matchContext: return "Adapts to what's on screen"
+        case .matchContext: return "Adapts to the active window"
         case .casual: return "Friendly and conversational"
         case .professional: return "Polished and formal"
         }
@@ -26,7 +26,7 @@ enum ResponseTone: String, CaseIterable, Identifiable {
 
     var promptFragment: String {
         switch self {
-        case .matchContext: return "Match the tone of what's on screen (casual for chat, professional for email, technical for code)."
+        case .matchContext: return "Match the tone of the active window (casual for chat, professional for email, technical for code)."
         case .casual: return "Always use a casual, friendly, conversational tone."
         case .professional: return "Always use a polished, professional, formal tone."
         }

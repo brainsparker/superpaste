@@ -32,7 +32,7 @@ enum HUDPhrases {
         let lower = message.lowercased()
 
         if lower.contains("timeout") || lower.contains("timed out") {
-            return "Took too long \u{2014} try again with a simpler screen."
+            return "Took too long \u{2014} try again with a simpler window."
         }
         if lower.contains("network") || lower.contains("connect") || lower.contains("offline") {
             return "Can't reach the server \u{2014} check your internet connection."
@@ -44,7 +44,7 @@ enum HUDPhrases {
             return "Too many requests \u{2014} wait a moment and try again."
         }
         if lower.contains("capture") || lower.contains("screenshot") {
-            return "Couldn't capture your screen \u{2014} check Screen Recording permission."
+            return "Couldn't capture the active window \u{2014} check Screen Recording permission."
         }
         if lower.contains("permission") || lower.contains("accessibility") {
             return "Missing permission \u{2014} open Settings to re-enable."

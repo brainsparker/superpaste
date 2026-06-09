@@ -1,6 +1,7 @@
 import SwiftUI
 import Combine
 import CoreGraphics
+import AppKit
 
 /// Main window state machine
 enum MainWindowState: Equatable {
@@ -27,6 +28,9 @@ final class AppState: ObservableObject {
 
     /// Whether Accessibility permission is granted
     @Published private(set) var accessibilityEnabled = false
+
+    /// Whether to offer a relaunch after Screen Recording was requested but is not usable yet.
+    @Published private(set) var shouldOfferPermissionRelaunch = false
 
     /// Days remaining in free trial. nil when licensed (no badge shown).
     @Published private(set) var trialDaysRemaining: Int? = nil
@@ -80,9 +84,9 @@ final class AppState: ObservableObject {
     // MARK: - Setup
 
     func setup() {
-        hotkeyService.register()
         permissionManager.startPolling()
         updateState()
+        refreshHotkeyRegistrationIfPossible()
     }
 
     private func setupHotkeySubscription() {
@@ -107,6 +111,9 @@ final class AppState: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] enabled in
                 self?.accessibilityEnabled = enabled
+                if enabled {
+                    self?.refreshHotkeyRegistrationIfPossible()
+                }
                 self?.updateMainWindowState()
             }
             .store(in: &cancellables)
@@ -128,7 +135,19 @@ final class AppState: ObservableObject {
     func updateState() {
         screenRecordingEnabled = permissionManager.checkPermission()
         accessibilityEnabled = permissionManager.checkAccessibilityPermission()
+        if screenRecordingEnabled {
+            shouldOfferPermissionRelaunch = false
+        }
+        refreshHotkeyRegistrationIfPossible()
         updateMainWindowState()
+    }
+
+    private func refreshHotkeyRegistrationIfPossible() {
+        guard accessibilityEnabled, !hotkeyService.isRegistered else {
+            return
+        }
+
+        hotkeyService.register()
     }
 
     private func updateMainWindowState() {
@@ -216,9 +235,9 @@ final class AppState: ObservableObject {
             return
         }
 
-        guard let context = screenCaptureService.captureWithFallback() else {
+        guard let context = screenCaptureService.capture() else {
             lastError = "Failed to capture screenshot"
-            hudState.showError("Couldn't capture your screen \u{2014} check Screen Recording permission.")
+            hudState.showError("Couldn't capture the active window \u{2014} check Screen Recording permission.")
             isProcessing = false
             return
         }
@@ -321,6 +340,7 @@ final class AppState: ObservableObject {
     }
 
     func openScreenRecordingSettings() {
+        shouldOfferPermissionRelaunch = true
         permissionManager.openScreenRecordingSettings()
     }
 
@@ -330,9 +350,18 @@ final class AppState: ObservableObject {
 
     func recheckPermission() {
         updateState()
-        // Retry hotkey registration in case Accessibility was just granted
-        if !hotkeyService.isRegistered {
-            hotkeyService.register()
+    }
+
+    func relaunchForPermissions() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", Bundle.main.bundleURL.path]
+
+        do {
+            try task.run()
+            NSApp.terminate(nil)
+        } catch {
+            lastError = "Couldn't relaunch SuperPaste."
         }
     }
 }
