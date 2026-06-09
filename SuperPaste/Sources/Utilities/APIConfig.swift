@@ -15,6 +15,7 @@ enum APIConfig {
 
     // MARK: - Request Configuration
 
+    static let model = "claude-sonnet-4-6"
     static let timeoutInterval: TimeInterval = 30.0
     static let maxTokens = 1024
 

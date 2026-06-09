@@ -12,11 +12,21 @@ final class LLMService {
         let model: String
         let max_tokens: Int
         let system: String
+        let thinking: Thinking
+        let output_config: OutputConfig
         let messages: [Message]
 
         struct Message: Encodable {
             let role: String
             let content: [ContentPart]
+        }
+
+        struct Thinking: Encodable {
+            let type: String
+        }
+
+        struct OutputConfig: Encodable {
+            let effort: String
         }
     }
 
@@ -151,13 +161,17 @@ final class LLMService {
         ) ?? .balanced
 
         let request = VisionRequest(
-            model: "claude-sonnet-4-20250514",
+            model: APIConfig.model,
             max_tokens: APIConfig.maxTokens,
             system: APIConfig.buildSystemPrompt(
                 personalContext: personalContext,
                 tone: tone,
                 length: length
             ),
+            // Sonnet 4.6 defaults to effort "high"; keep the no-thinking,
+            // low-latency profile the product is built around.
+            thinking: .init(type: "disabled"),
+            output_config: .init(effort: "low"),
             messages: [
                 .init(role: "user", content: contentParts)
             ]
