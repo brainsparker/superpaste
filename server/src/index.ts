@@ -14,6 +14,11 @@ export interface Env {
   POLAR_ACCESS_TOKEN: string;
   POLAR_ORGANIZATION_ID: string;
   SUPERPASTE_KV: KVNamespace;
+  /** Optional owner/developer bypass key. Set via `wrangler secret put OWNER_LICENSE_KEY`.
+   *  When the presented license key equals this value, validation succeeds without
+   *  calling Polar — used by the creator to exercise the app without a paid license.
+   *  Kept out of source on purpose so the value never ships in the OSS repo. */
+  OWNER_LICENSE_KEY?: string;
 }
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
@@ -68,6 +73,11 @@ async function enforceRateLimit(deviceId: string, limit: number, env: Env): Prom
 
 // --- License key validation (Polar.sh) ---
 async function validateLicense(key: string, env: Env): Promise<boolean> {
+  // Owner/developer bypass — value lives in a Cloudflare secret, never in source.
+  if (env.OWNER_LICENSE_KEY && key === env.OWNER_LICENSE_KEY) {
+    return true;
+  }
+
   // Check KV cache first
   const cacheKey = `license_valid:${key}`;
   const cached = await env.SUPERPASTE_KV.get(cacheKey);
