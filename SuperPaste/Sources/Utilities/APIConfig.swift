@@ -7,8 +7,10 @@ enum APIConfig {
     /// SuperPaste backend endpoint — model auth lives server-side.
     #if DEBUG
     static let baseURL = "http://localhost:8787/v1/messages"
+    static let validateLicenseURL = "http://localhost:8787/v1/validate-license"
     #else
     static let baseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/messages"
+    static let validateLicenseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/validate-license"
     #endif
 
     // MARK: - Request Configuration

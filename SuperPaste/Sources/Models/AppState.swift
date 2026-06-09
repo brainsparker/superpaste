@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 import CoreGraphics
 import AppKit
+import ServiceManagement
 
 /// Main window state machine
 enum MainWindowState: Equatable {
@@ -53,6 +54,12 @@ final class AppState: ObservableObject {
 
     /// Number of times SuperPaste has been used
     @AppStorage("useCount") private(set) var useCount = 0
+
+    /// Whether SuperPaste should start when the user logs in.
+    @AppStorage("launchAtLogin") private var launchAtLogin = false
+
+    /// Tracks the one-time default-on launch-at-login setup after permissions are ready.
+    @AppStorage("hasConfiguredLaunchAtLogin") private var hasConfiguredLaunchAtLogin = false
 
     // MARK: - Services
 
@@ -161,7 +168,14 @@ final class AppState: ObservableObject {
             mainWindowState = .trialExpired
         } else {
             mainWindowState = .ready
+            configureLaunchAtLoginByDefaultIfNeeded()
         }
+    }
+
+    private func configureLaunchAtLoginByDefaultIfNeeded() {
+        guard !hasConfiguredLaunchAtLogin else { return }
+        setLaunchAtLogin(true)
+        hasConfiguredLaunchAtLogin = true
     }
 
     private func computeTrialDaysRemaining() {
@@ -326,8 +340,10 @@ final class AppState: ObservableObject {
                 updateMainWindowState()
             } catch LicenseService.LicenseError.invalidKey {
                 licenseActivationState = .failure("License key not recognized.")
+            } catch let error as LicenseService.LicenseError {
+                licenseActivationState = .failure(error.localizedDescription)
             } catch {
-                licenseActivationState = .failure("Couldn't connect. Check your internet connection.")
+                licenseActivationState = .failure("Couldn't save license: \(error.localizedDescription)")
             }
         }
     }
@@ -362,6 +378,26 @@ final class AppState: ObservableObject {
             NSApp.terminate(nil)
         } catch {
             lastError = "Couldn't relaunch SuperPaste."
+        }
+    }
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        let service = SMAppService.mainApp
+        do {
+            if enabled {
+                if service.status != .enabled {
+                    try service.register()
+                }
+            } else if service.status == .enabled {
+                try service.unregister()
+            }
+            launchAtLogin = enabled
+        } catch {
+            launchAtLogin = service.status == .enabled
+            lastError = enabled
+                ? "Couldn't enable launch at login."
+                : "Couldn't disable launch at login."
+            print("Failed to update launch at login: \(error)")
         }
     }
 }

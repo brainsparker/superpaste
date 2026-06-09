@@ -5,10 +5,34 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SuperPaste — Press Option V. Text appears.</title>
   <meta name="description" content="SuperPaste uses your active window to write for you. Place your cursor, press Option V, and the right text appears — instantly." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="canonical" href="https://superpaste.ai/" />
   <meta property="og:title" content="SuperPaste — Press Option V. Text appears." />
   <meta property="og:description" content="SuperPaste uses your active window to write for you. No copying, no prompting, no second step." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://superpaste.ai" />
+  <meta property="og:site_name" content="SuperPaste" />
+  <!-- TODO: og:image — needs a hosted 1200x630 PNG next to index.html -->
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="SuperPaste — Press Option V. Text appears." />
+  <meta name="twitter:description" content="SuperPaste uses your active window to write for you. No copying, no prompting, no second step." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='42' font-family='-apple-system,sans-serif' font-size='26' font-weight='700' fill='%230071e3' text-anchor='middle'%3E%E2%8C%A5V%3C/text%3E%3C/svg%3E" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "SuperPaste",
+    "operatingSystem": "macOS 14.0 or later",
+    "applicationCategory": "ProductivityApplication",
+    "url": "https://superpaste.ai",
+    "description": "SuperPaste uses your active window to write for you. Place your cursor, press Option V, and the right text appears — instantly.",
+    "offers": {
+      "@type": "Offer",
+      "price": "5.00",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
@@ -26,6 +50,7 @@
       --blue: #0071e3;
       --blue-hover: #0077ed;
       --blue-glow: rgba(0,113,227,0.25);
+      --green: #30d158;
       --radius: 16px;
     }
 
@@ -132,7 +157,7 @@
       align-items: center;
       justify-content: center;
       text-align: center;
-      padding: 120px 24px 80px;
+      padding: 140px 24px 100px;
       position: relative;
       overflow: hidden;
     }
@@ -202,19 +227,98 @@
       color: var(--text-3);
     }
 
-    /* Demo strip */
-    .demo-strip {
+    /* Animated demo */
+    .demo {
+      margin-top: 72px;
+      width: 100%;
+      max-width: 640px;
+      text-align: left;
+      position: relative;
+      z-index: 1;
+    }
+
+    .demo-window {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 24px 80px rgba(0,0,0,0.55), 0 0 60px rgba(0,113,227,0.07);
+      transition: opacity 0.45s ease;
+    }
+
+    .demo-window.is-out { opacity: 0; }
+
+    .demo-titlebar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+
+    .tl-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+    .tl-red { background: #ff5f57; }
+    .tl-yellow { background: #febc2e; }
+    .tl-green { background: #28c840; }
+
+    .demo-app {
+      margin-left: 8px;
+      font-size: 13px;
+      color: var(--text-3);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .demo-body { padding: 20px; }
+
+    .demo-msg {
+      margin-bottom: 16px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .demo-who {
+      display: block;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text-2);
+      margin-bottom: 4px;
+    }
+
+    .demo-text { color: var(--text-2); }
+
+    .demo-field {
+      min-height: 92px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 10px;
+      background: rgba(255,255,255,0.03);
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text);
+    }
+
+    .demo-caret {
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      background: var(--blue);
+      vertical-align: text-bottom;
+      margin-left: 1px;
+      animation: caret-blink 1.06s steps(1) infinite;
+    }
+
+    @keyframes caret-blink { 50% { opacity: 0; } }
+
+    .demo-hud {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 12px;
-      margin-top: 80px;
-      padding: 20px 32px;
-      background: var(--surface-2);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      max-width: 520px;
-      width: 100%;
+      gap: 14px;
+      margin-top: 20px;
+      min-height: 36px;
     }
 
     .demo-key {
@@ -230,28 +334,51 @@
       font-weight: 500;
       color: var(--text);
       font-family: -apple-system, BlinkMacSystemFont, monospace;
+      transition: all 0.15s;
     }
 
-    .demo-arrow {
-      color: var(--text-3);
-      font-size: 18px;
+    .demo-key.pressed {
+      transform: translateY(2px);
+      border-bottom-width: 1px;
+      background: rgba(0,113,227,0.25);
+      border-color: rgba(0,113,227,0.6);
+      box-shadow: 0 0 18px var(--blue-glow);
+      color: #fff;
     }
 
-    .demo-result {
-      font-size: 14px;
-      color: var(--text-2);
+    .demo-thinking { display: none; gap: 5px; align-items: center; }
+    .demo-thinking.on { display: inline-flex; }
+
+    .demo-thinking i {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--text-3);
+      animation: dot-pulse 1s ease-in-out infinite;
     }
 
-    .demo-result strong {
-      color: var(--text);
+    .demo-thinking i:nth-child(2) { animation-delay: 0.18s; }
+    .demo-thinking i:nth-child(3) { animation-delay: 0.36s; }
+
+    @keyframes dot-pulse {
+      40% { transform: translateY(-4px); background: var(--text-2); }
+    }
+
+    .demo-pasted {
+      display: none;
+      font-size: 13px;
       font-weight: 500;
+      color: var(--green);
     }
+
+    .demo-pasted.on { display: inline; }
 
     /* Section */
     section {
       padding: 100px 24px;
       max-width: 1100px;
       margin: 0 auto;
+      scroll-margin-top: 80px;
     }
 
     .section-label {
@@ -322,6 +449,69 @@
       line-height: 1.6;
     }
 
+    /* Use cases */
+    .usecase-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 64px;
+    }
+
+    .usecase {
+      padding: 32px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .usecase-tag {
+      display: inline-block;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      border: 1px solid var(--border);
+      border-radius: 980px;
+      padding: 4px 12px;
+      margin-bottom: 18px;
+    }
+
+    .usecase h3 {
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 10px;
+    }
+
+    .usecase-on {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    .usecase-on strong {
+      color: var(--text);
+      font-weight: 500;
+    }
+
+    .usecase-out {
+      margin-top: 14px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.04);
+      border-left: 2px solid var(--blue);
+      border-radius: 8px;
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.55;
+    }
+
+    .usecase-close {
+      margin-top: 40px;
+      font-size: 17px;
+      color: var(--text-2);
+    }
+
     /* Privacy */
     .privacy-grid {
       display: grid;
@@ -355,10 +545,83 @@
 
     .privacy-item:last-child { margin-bottom: 0; }
 
-    .check { color: #30d158; font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+    .check { color: var(--green); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
     .cross { color: rgba(255,255,255,0.3); font-size: 16px; flex-shrink: 0; margin-top: 1px; }
 
     .privacy-item span { color: var(--text-2); line-height: 1.5; }
+
+    .privacy-footnote {
+      margin-top: 32px;
+      font-size: 15px;
+      color: var(--text-2);
+    }
+
+    .privacy-footnote a {
+      color: var(--text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    /* Open source */
+    #open-source { border-top: 1px solid var(--border); }
+
+    .oss-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      margin-top: 64px;
+      align-items: start;
+    }
+
+    .oss-point { margin-bottom: 28px; }
+
+    .oss-point h3 {
+      font-size: 19px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin-bottom: 8px;
+    }
+
+    .oss-point p {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
+    .oss-actions {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-top: 36px;
+    }
+
+    .oss-license {
+      font-size: 14px;
+      color: var(--text-2);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .oss-license:hover { color: var(--text); }
+
+    .oss-terminal {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .oss-terminal pre {
+      padding: 24px 20px;
+      font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.8;
+      color: var(--text-2);
+      overflow-x: auto;
+    }
+
+    .oss-terminal pre .prompt { color: var(--green); }
+    .oss-terminal pre .cmd { color: var(--text); }
 
     /* Pricing */
     #pricing { border-top: 1px solid var(--border); }
@@ -372,6 +635,13 @@
       border-radius: 24px;
       position: relative;
       overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .pricing-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(0,113,227,0.4);
+      box-shadow: 0 12px 48px rgba(0,113,227,0.12);
     }
 
     .pricing-card::before {
@@ -444,6 +714,64 @@
       margin-top: 16px;
     }
 
+    .pricing-oss {
+      margin-top: 32px;
+      font-size: 14px;
+      color: var(--text-3);
+      max-width: 420px;
+    }
+
+    .pricing-oss a {
+      color: var(--text-2);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .pricing-oss a:hover { color: var(--text); }
+
+    /* FAQ */
+    #faq { border-top: 1px solid var(--border); }
+
+    .faq-list {
+      margin-top: 48px;
+      max-width: 720px;
+    }
+
+    .faq-item { border-bottom: 1px solid var(--border); }
+
+    .faq-item summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 0;
+      cursor: pointer;
+      font-size: 17px;
+      font-weight: 500;
+      letter-spacing: -0.01em;
+      list-style: none;
+    }
+
+    .faq-item summary::-webkit-details-marker { display: none; }
+
+    .faq-item summary::after {
+      content: '+';
+      font-size: 22px;
+      font-weight: 300;
+      color: var(--text-3);
+      transition: transform 0.2s;
+      flex-shrink: 0;
+    }
+
+    .faq-item[open] summary::after { transform: rotate(45deg); }
+
+    .faq-item p {
+      padding: 0 36px 22px 0;
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.6;
+    }
+
     /* Footer */
     footer {
       border-top: 1px solid var(--border);
@@ -479,18 +807,28 @@
       border-top: 1px solid var(--border);
     }
 
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .demo-caret, .demo-thinking i { animation: none; }
+      .demo-window, .pricing-card, .btn { transition: none; }
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       nav { padding: 0 20px; }
       .nav-links { display: none; }
 
-      .steps {
+      .steps,
+      .usecase-grid,
+      .privacy-grid,
+      .oss-grid {
         grid-template-columns: 1fr;
       }
 
-      .privacy-grid {
-        grid-template-columns: 1fr;
-      }
+      .oss-grid { gap: 32px; }
+
+      .demo-body { padding: 16px; }
 
       footer {
         flex-direction: column;
@@ -508,8 +846,10 @@
     <a class="nav-logo" href="/">SuperPaste</a>
     <ul class="nav-links">
       <li><a href="#how-it-works">How it works</a></li>
+      <li><a href="#use-cases">Use cases</a></li>
       <li><a href="#privacy">Privacy</a></li>
       <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#faq">FAQ</a></li>
     </ul>
     <a class="btn btn-primary" href="#download">Download free</a>
   </nav>
@@ -527,10 +867,27 @@
     </div>
     <p class="hero-footnote">7-day free trial &nbsp;·&nbsp; $5/month after &nbsp;·&nbsp; macOS 14+</p>
 
-    <div class="demo-strip">
-      <span class="demo-key">⌥ V</span>
-      <span class="demo-arrow">→</span>
-      <span class="demo-result"><strong>Text appears</strong> in the focused field</span>
+    <div class="demo" role="img" aria-label="Animated demo: pressing Option V pastes an AI-written reply into the focused text field">
+      <div class="demo-window" id="demo-window">
+        <div class="demo-titlebar">
+          <span class="tl-dot tl-red"></span><span class="tl-dot tl-yellow"></span><span class="tl-dot tl-green"></span>
+          <span class="demo-app" id="demo-app">Mail — Re: Launch timeline</span>
+        </div>
+        <div class="demo-body">
+          <div class="demo-context" id="demo-context">
+            <div class="demo-msg">
+              <span class="demo-who">Dana Reyes</span>
+              <span class="demo-text">Hey — any update on the launch date? Marketing needs to lock the announcement this week.</span>
+            </div>
+          </div>
+          <div class="demo-field"><span class="demo-typed" id="demo-typed">Hi Dana — we're on track for the 24th. QA wraps Friday, so you can safely lock the announcement. I'll flag anything that changes before Wednesday.</span><span class="demo-caret"></span></div>
+        </div>
+      </div>
+      <div class="demo-hud" aria-hidden="true">
+        <span class="demo-key" id="demo-key">⌥ V</span>
+        <span class="demo-thinking" id="demo-thinking"><i></i><i></i><i></i></span>
+        <span class="demo-pasted" id="demo-pasted">Pasted ✓</span>
+      </div>
     </div>
   </div>
 
@@ -551,14 +908,52 @@
       <div class="step">
         <div class="step-num">2</div>
         <h3>Press Option V</h3>
-        <p>SuperPaste takes a single screenshot of your active window and sends it to Claude. A subtle indicator shows it's working.</p>
+        <p>SuperPaste takes a single screenshot of your active window and sends it to Claude over an encrypted connection. A subtle indicator shows it's working.</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
         <h3>Text appears</h3>
-        <p>The response is pasted directly into your field — no ⌘V required. Done before you've moved your hands.</p>
+        <p>The response is pasted directly into your field — no ⌘V required. Done before you've moved your hands. Don't like it? ⌘Z undoes it.</p>
       </div>
     </div>
+  </section>
+
+  <hr class="full-divider" />
+
+  <!-- Use cases -->
+  <section id="use-cases">
+    <div class="section-label">Use cases</div>
+    <h2 class="section-title">Wherever you type, it writes.</h2>
+    <p class="section-sub">SuperPaste reads what's already on your screen — the question, the thread, the form — and writes the thing you were about to type.</p>
+
+    <div class="usecase-grid">
+      <div class="usecase">
+        <div class="usecase-tag">Mail</div>
+        <h3>Email replies</h3>
+        <p class="usecase-on"><strong>On your screen:</strong> a client asking to move tomorrow's call.</p>
+        <p class="usecase-out">"No problem at all — tomorrow is tight, but I could do Thursday at 2pm or Friday morning. Whichever works best for you."</p>
+      </div>
+      <div class="usecase">
+        <div class="usecase-tag">Slack</div>
+        <h3>Slack answers</h3>
+        <p class="usecase-on"><strong>On your screen:</strong> a teammate's question in a busy thread.</p>
+        <p class="usecase-out">"Yep — fixed in 2.3.1. It was the CSV encoding issue; exports with special characters work now."</p>
+      </div>
+      <div class="usecase">
+        <div class="usecase-tag">Browser</div>
+        <h3>Forms &amp; applications</h3>
+        <p class="usecase-on"><strong>On your screen:</strong> a form field with its label visible.</p>
+        <p class="usecase-out">The answer for that field, written right where your cursor is — no retyping your life story into yet another form.</p>
+      </div>
+      <div class="usecase">
+        <div class="usecase-tag">Code</div>
+        <h3>Code</h3>
+        <p class="usecase-on"><strong>On your screen:</strong> a failing test, a stack trace, or a <code>// TODO</code>.</p>
+        <p class="usecase-out">The fix or implementation at your cursor — it can see the error <em>and</em> the surrounding code.</p>
+      </div>
+    </div>
+
+    <p class="usecase-close">One hotkey. Zero prompting. If you can click into it, SuperPaste can write into it.</p>
   </section>
 
   <hr class="full-divider" />
@@ -606,6 +1001,48 @@
         </div>
       </div>
     </div>
+
+    <p class="privacy-footnote">Don't take our word for it — <a href="#open-source">read the code</a>.</p>
+  </section>
+
+  <!-- Open source -->
+  <section id="open-source">
+    <div class="section-label">Open source</div>
+    <h2 class="section-title">Trust is easier when you can read the code.</h2>
+    <p class="section-sub">SuperPaste is MIT licensed. Every line that touches your screen is public.</p>
+
+    <div class="oss-grid">
+      <div class="oss-points">
+        <div class="oss-point">
+          <h3>Audit it.</h3>
+          <p>The screenshot capture, the API call, the discard — it's all on GitHub. No hidden telemetry, because there's nowhere to hide it.</p>
+        </div>
+        <div class="oss-point">
+          <h3>Compile it yourself, free.</h3>
+          <p>Bring your own Anthropic API key and the app costs nothing, forever.</p>
+        </div>
+        <div class="oss-point">
+          <h3>Or pay $5/month and skip the setup.</h3>
+          <p>The hosted plan covers Claude usage and works the minute the DMG opens. Same code either way.</p>
+        </div>
+        <div class="oss-actions">
+          <a class="btn btn-ghost" href="https://github.com/brianjsparker/superpaste">View on GitHub</a>
+          <a class="oss-license" href="https://github.com/brianjsparker/superpaste/blob/main/LICENSE">MIT License</a>
+        </div>
+      </div>
+
+      <div class="oss-terminal">
+        <div class="demo-titlebar">
+          <span class="tl-dot tl-red"></span><span class="tl-dot tl-yellow"></span><span class="tl-dot tl-green"></span>
+          <span class="demo-app">Terminal</span>
+        </div>
+        <pre><span class="prompt">$</span> <span class="cmd">git clone https://github.com/brianjsparker/superpaste</span>
+<span class="prompt">$</span> <span class="cmd">cd superpaste &amp;&amp; ./build.sh</span>
+
+Building SuperPaste…
+✓ Done. Drag SuperPaste.app to /Applications.</pre>
+      </div>
+    </div>
   </section>
 
   <hr class="full-divider" />
@@ -634,6 +1071,45 @@
       </a>
       <p class="pricing-trial">7 days free &nbsp;·&nbsp; No credit card to start</p>
     </div>
+
+    <p class="pricing-oss">Prefer to run it yourself? SuperPaste is <a href="#open-source">open source</a> — compile it with your own Anthropic API key, free forever.</p>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="section-label">FAQ</div>
+    <h2 class="section-title">Fair questions.</h2>
+
+    <div class="faq-list">
+      <details class="faq-item">
+        <summary>Why does it need Screen Recording and Accessibility permissions?</summary>
+        <p>Screen Recording is the macOS permission for capturing the active window — one screenshot, only when you press ⌥V. Accessibility lets SuperPaste register the global hotkey and paste at your cursor. It never records video and never reads your keystrokes.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is my screen data stored anywhere?</summary>
+        <p>No. The screenshot is sent over an encrypted connection, used to generate one response, and discarded. No storage, no training, no logs of your content.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Which apps does it work in?</summary>
+        <p>Anywhere you can place a cursor and ⌘V works: Mail, Slack, every browser, IDEs, Notes — native and Electron apps alike.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What if the output is wrong?</summary>
+        <p>Nothing is sent or submitted — text is just pasted at your cursor. Read it, edit it, or press ⌘Z and it's gone. You're always the last step.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Does it work offline?</summary>
+        <p>No — it needs Claude to think. Offline, pressing ⌥V simply does nothing; you'll see a quiet error and your screen goes nowhere.</p>
+      </details>
+      <details class="faq-item">
+        <summary>What happens after the 7-day trial?</summary>
+        <p>Generation pauses until you subscribe — $5/month, cancel anytime. Nothing is auto-charged; the trial needs no card. Or compile from source with your own API key, free.</p>
+      </details>
+      <details class="faq-item">
+        <summary>Is it really open source?</summary>
+        <p>Yes — MIT licensed, with the full source at <a href="https://github.com/brianjsparker/superpaste" style="color: var(--text-2);">github.com/brianjsparker/superpaste</a>, including both the app and the server.</p>
+      </details>
+    </div>
   </section>
 
   <hr class="full-divider" />
@@ -644,9 +1120,14 @@
     <h2 class="section-title" style="max-width: 600px; margin: 0 auto 20px;">Ready when you are.</h2>
     <p class="section-sub" style="margin: 0 auto 48px;">Download SuperPaste, open it, and press Option V. That's it.</p>
 
-    <a class="btn btn-primary btn-large" href="https://github.com/brianjsparker/superpaste/releases/latest/download/SuperPaste.dmg">
-      Download SuperPaste
-    </a>
+    <div class="hero-actions">
+      <a class="btn btn-primary btn-large" href="https://github.com/brianjsparker/superpaste/releases/latest/download/SuperPaste.dmg">
+        Download SuperPaste
+      </a>
+      <a class="btn btn-ghost btn-large" href="https://github.com/brianjsparker/superpaste">
+        View source on GitHub
+      </a>
+    </div>
     <p style="font-size: 13px; color: var(--text-3); margin-top: 16px;">
       macOS 14 Sonoma or later &nbsp;·&nbsp; Apple Silicon &amp; Intel
     </p>
@@ -654,12 +1135,122 @@
 
   <!-- Footer -->
   <footer>
-    <div class="footer-left">© 2026 SuperPaste. Made for Mac.</div>
+    <div class="footer-left">© 2026 SuperPaste &nbsp;·&nbsp; MIT licensed &nbsp;·&nbsp; Made for Mac.</div>
     <ul class="footer-links">
+      <li><a href="https://github.com/brianjsparker/superpaste">GitHub</a></li>
       <li><a href="mailto:help@superpaste.ai">Support</a></li>
       <li><a href="https://buy.polar.sh/polar_cl_YS3DZpcmFoh7GDvDvRxWezZLUmPKgwf9Mb6T618NFdC">Buy a license</a></li>
     </ul>
   </footer>
+
+  <script>
+  (function () {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    var SCENARIOS = [
+      {
+        app: 'Mail — Re: Launch timeline',
+        context: [
+          { who: 'Dana Reyes', text: 'Hey — any update on the launch date? Marketing needs to lock the announcement this week.' }
+        ],
+        response: "Hi Dana — we're on track for the 24th. QA wraps Friday, so you can safely lock the announcement. I'll flag anything that changes before Wednesday."
+      },
+      {
+        app: 'Slack — #support',
+        context: [
+          { who: 'mike', text: 'does anyone know if the export bug got fixed in 2.3.1?' }
+        ],
+        response: 'Yep — fixed in 2.3.1. It was the CSV encoding issue; exports with special characters work now. Release notes have the details.'
+      },
+      {
+        app: 'Safari — Conference registration',
+        context: [
+          { who: 'Dietary restrictions or accessibility needs?', text: '' }
+        ],
+        response: 'Vegetarian, no other restrictions. No accessibility accommodations needed — thank you for asking.'
+      }
+    ];
+
+    var win = document.getElementById('demo-window');
+    var app = document.getElementById('demo-app');
+    var ctx = document.getElementById('demo-context');
+    var typed = document.getElementById('demo-typed');
+    var key = document.getElementById('demo-key');
+    var thinking = document.getElementById('demo-thinking');
+    var pasted = document.getElementById('demo-pasted');
+
+    var hidden = document.hidden;
+    document.addEventListener('visibilitychange', function () { hidden = document.hidden; });
+
+    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+    // Wait, then hold while the tab is hidden so the animation resumes cleanly.
+    async function wait(ms) {
+      await sleep(ms);
+      while (hidden) await sleep(200);
+    }
+
+    function render(s) {
+      app.textContent = s.app;
+      ctx.textContent = '';
+      s.context.forEach(function (c) {
+        var m = document.createElement('div');
+        m.className = 'demo-msg';
+        var w = document.createElement('span');
+        w.className = 'demo-who';
+        w.textContent = c.who;
+        m.appendChild(w);
+        if (c.text) {
+          var t = document.createElement('span');
+          t.className = 'demo-text';
+          t.textContent = c.text;
+          m.appendChild(t);
+        }
+        ctx.appendChild(m);
+      });
+      typed.textContent = '';
+    }
+
+    async function cycle(s) {
+      win.classList.add('is-out');
+      await wait(500);
+      render(s);
+      win.classList.remove('is-out');
+      await wait(1200);
+
+      key.classList.add('pressed');
+      await wait(250);
+      key.classList.remove('pressed');
+      await wait(150);
+
+      thinking.classList.add('on');
+      await wait(1200);
+      thinking.classList.remove('on');
+
+      for (var i = 0; i < s.response.length; i++) {
+        typed.textContent += s.response[i];
+        await sleep(20 + Math.random() * 26);
+        while (hidden) await sleep(200);
+      }
+
+      pasted.classList.add('on');
+      await wait(1400);
+      pasted.classList.remove('on');
+      await wait(1200);
+    }
+
+    async function run() {
+      var i = 0;
+      await wait(2200); // let the baked-in completed state breathe first
+      while (true) {
+        await cycle(SCENARIOS[i]);
+        i = (i + 1) % SCENARIOS.length;
+      }
+    }
+
+    run();
+  })();
+  </script>
 
 </body>
 </html>

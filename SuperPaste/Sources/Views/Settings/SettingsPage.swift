@@ -1,5 +1,4 @@
 import SwiftUI
-import ServiceManagement
 
 /// Settings configuration page
 struct SettingsPage: View {
@@ -211,7 +210,7 @@ struct SettingsPage: View {
                 Spacer()
             }
 
-            Text("Press Option V from any app to instantly fill the focused field.")
+            Text("Press Option V from any app while SuperPaste is running to instantly fill the focused field.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -302,23 +301,13 @@ struct SettingsPage: View {
             Toggle("Play sound when ready", isOn: $playSoundOnReady)
 
             Toggle("Launch SuperPaste at login", isOn: $launchAtLogin)
-                .onChange(of: launchAtLogin) { newValue in
-                    updateLaunchAtLogin(newValue)
+                .onChange(of: launchAtLogin) { _, newValue in
+                    appState.setLaunchAtLogin(newValue)
                 }
-        }
-    }
 
-    // MARK: - Actions
-
-    private func updateLaunchAtLogin(_ enabled: Bool) {
-        do {
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        } catch {
-            print("Failed to update launch at login: \(error)")
+            Text("Keep this on so the hotkey is available after login without opening SuperPaste manually.")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 }

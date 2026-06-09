@@ -1,30 +1,18 @@
 import Foundation
 import Security
 
-/// Direct, client-side license validation against Polar.sh.
+/// License validation via the SuperPaste backend.
 ///
-/// Uses Polar's customer-portal endpoint which is auth-free and explicitly safe to
-/// call from a desktop app — no organization access token is needed, only the
-/// public org UUID. The license key itself is stored in the macOS Keychain so it
-/// survives reinstalls.
-///
-/// Replaces the server-side gate in `LLMService.validateLicense`. Once every
-/// install path has been migrated to this service the Cloudflare Worker can be
-/// deleted (Phase 5 follow-up).
+/// Validation goes through the Worker's `/v1/validate-license` endpoint rather
+/// than Polar directly: the Worker holds the Polar credentials and also honors
+/// the owner bypass key, so the app needs no Polar configuration at all. The
+/// license key itself is stored in the macOS Keychain so it survives reinstalls.
 final class LicenseService {
     static let shared = LicenseService()
 
-    /// Polar organization UUID. Public-safe per Polar's customer-portal docs —
-    /// it appears in checkout URLs and the SDK's docs.
-    ///
-    /// TODO: replace with the actual SuperPaste org UUID. While this stays
-    /// `nil` the service falls back to a soft-validate that treats any
-    /// non-empty key as valid (so the rest of the app remains testable).
-    static let organizationID: String? = nil  // e.g. "abcd1234-..."
-
     private let session: URLSession
     private let keychain: Keychain
-    private static let validateURL = URL(string: "https://api.polar.sh/v1/customer-portal/license-keys/validate")!
+    private static let validateURL = URL(string: APIConfig.validateLicenseURL)!
 
     private init() {
         let config = URLSessionConfiguration.ephemeral
@@ -36,15 +24,12 @@ final class LicenseService {
     // MARK: - Errors
 
     enum LicenseError: LocalizedError {
-        case missingOrganizationID
         case networkFailure
         case invalidKey
         case unexpectedResponse(Int)
 
         var errorDescription: String? {
             switch self {
-            case .missingOrganizationID:
-                return "License validation is not configured (missing Polar organization ID)."
             case .networkFailure:
                 return "Couldn't reach the license server. Check your internet connection."
             case .invalidKey:
@@ -68,7 +53,7 @@ final class LicenseService {
         currentLicenseKey != nil
     }
 
-    /// Validate a license key against Polar.sh.
+    /// Validate a license key against the SuperPaste backend.
     ///
     /// On success, returns true. Does not store anything — call `activate` to
     /// persist a validated key.
@@ -76,25 +61,15 @@ final class LicenseService {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        // Soft-fallback for development before the org UUID is wired in.
-        guard let orgID = Self.organizationID else {
-            #if DEBUG
-            print("[LicenseService] WARNING: organizationID is nil. Soft-accepting any non-empty key for development.")
-            return true
-            #else
-            throw LicenseError.missingOrganizationID
-            #endif
-        }
-
         var request = URLRequest(url: Self.validateURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body: [String: String] = ["key": trimmed, "organization_id": orgID]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        request.httpBody = try JSONSerialization.data(withJSONObject: ["key": trimmed])
 
+        let data: Data
         let response: URLResponse
         do {
-            (_, response) = try await session.data(for: request)
+            (data, response) = try await session.data(for: request)
         } catch {
             throw LicenseError.networkFailure
         }
@@ -103,11 +78,15 @@ final class LicenseService {
             throw LicenseError.networkFailure
         }
 
-        switch http.statusCode {
-        case 200...299: return true
-        case 404, 401, 403: return false
-        default: throw LicenseError.unexpectedResponse(http.statusCode)
+        guard (200...299).contains(http.statusCode) else {
+            throw LicenseError.unexpectedResponse(http.statusCode)
         }
+
+        struct ValidateResponse: Decodable { let valid: Bool }
+        guard let decoded = try? JSONDecoder().decode(ValidateResponse.self, from: data) else {
+            throw LicenseError.unexpectedResponse(http.statusCode)
+        }
+        return decoded.valid
     }
 
     /// Validate `key` and, on success, persist it to the Keychain.

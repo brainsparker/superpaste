@@ -1,5 +1,4 @@
 import SwiftUI
-import ServiceManagement
 
 /// View displayed when SuperPaste is fully configured and ready to use.
 struct ReadyView: View {
@@ -86,6 +85,7 @@ struct ReadyView: View {
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.05)))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.blue.opacity(0.2), lineWidth: 1))
             hotkeyVisual
+            availabilityNote
         }
     }
 
@@ -101,6 +101,7 @@ struct ReadyView: View {
                 }
             }
             hotkeyVisual
+            availabilityNote
             VStack(alignment: .leading, spacing: 6) {
                 Text("Tip").font(.caption.weight(.semibold)).foregroundColor(.secondary)
                 Text(tips[appState.useCount % tips.count])
@@ -143,6 +144,20 @@ struct ReadyView: View {
         .frame(maxWidth: .infinity)
     }
 
+    private var availabilityNote: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: "power")
+                .foregroundColor(.secondary)
+            Text("SuperPaste starts at login so Option V is ready without opening this window. If you quit SuperPaste completely, macOS stops sending it the hotkey until it is opened again.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+    }
+
     // MARK: - Footer
 
     private var footerSection: some View {
@@ -150,7 +165,9 @@ struct ReadyView: View {
             HStack {
                 Toggle("Launch at login", isOn: $launchAtLogin)
                     .toggleStyle(.checkbox)
-                    .onChange(of: launchAtLogin) { updateLaunchAtLogin($0) }
+                    .onChange(of: launchAtLogin) { _, newValue in
+                        appState.setLaunchAtLogin(newValue)
+                    }
                 Spacer()
                 Button {
                     NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
@@ -168,12 +185,6 @@ struct ReadyView: View {
         }
     }
 
-    private func updateLaunchAtLogin(_ enabled: Bool) {
-        do {
-            if enabled { try SMAppService.mainApp.register() }
-            else { try SMAppService.mainApp.unregister() }
-        } catch { print("Failed to update launch at login: \(error)") }
-    }
 }
 
 // MARK: - Subviews

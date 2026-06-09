@@ -48,6 +48,7 @@ done
 echo "Resetting onboarding defaults for ${BUNDLE_ID}..."
 for key in \
     hasSeenWelcome \
+    hasConfiguredLaunchAtLogin \
     hasTriedOnce \
     useCount \
     launchAtLogin \

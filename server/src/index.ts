@@ -99,6 +99,13 @@ async function validateLicense(key: string, env: Env): Promise<boolean> {
         organization_id: env.POLAR_ORGANIZATION_ID,
       }),
     });
+    if (response.status === 401 || response.status === 403) {
+      // Polar rejected OUR credentials, not the user's key. Fail open and skip
+      // the cache so legitimate customers aren't locked out by a bad/rotated
+      // POLAR_ACCESS_TOKEN, and the fix takes effect immediately.
+      console.error(`Polar auth failed (${response.status}) — check POLAR_ACCESS_TOKEN / POLAR_ORGANIZATION_ID`);
+      return true;
+    }
     isValid = response.ok;
   } catch {
     // Network error — fail open to avoid blocking legitimate users
