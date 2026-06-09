@@ -9,11 +9,20 @@
  * KV: SUPERPASTE_KV (create with `wrangler kv namespace create SUPERPASTE_KV`)
  */
 
+interface RateLimiter {
+  limit(options: { key: string }): Promise<{ success: boolean }>;
+}
+
 export interface Env {
   ANTHROPIC_API_KEY: string;
   POLAR_ACCESS_TOKEN: string;
   POLAR_ORGANIZATION_ID: string;
   SUPERPASTE_KV: KVNamespace;
+  /** Per-IP burst limiters (Cloudflare Rate Limiting API, configured in wrangler.toml). */
+  IP_LIMITER: RateLimiter;
+  VALIDATE_LIMITER: RateLimiter;
+  /** Total /v1/messages requests allowed per UTC day across all users (spend cap). */
+  GLOBAL_DAILY_LIMIT?: string;
   /** Optional owner/developer bypass key. Set via `wrangler secret put OWNER_LICENSE_KEY`.
    *  When the presented license key equals this value, validation succeeds without
    *  calling Polar — used by the creator to exercise the app without a paid license.
@@ -26,6 +35,7 @@ const ANTHROPIC_VERSION = "2023-06-01";
 const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const TRIAL_DAILY_LIMIT = 15;
 const LICENSED_DAILY_LIMIT = 100;
+const DEFAULT_GLOBAL_DAILY_LIMIT = 500;
 const LICENSE_CACHE_TTL_SECONDS = 3600; // 1 hour
 
 // --- Helper: JSON response ---
@@ -69,6 +79,22 @@ async function enforceRateLimit(deviceId: string, limit: number, env: Env): Prom
 
   // Increment with a 48-hour TTL so old keys self-clean
   await env.SUPERPASTE_KV.put(usageKey, String(current + 1), { expirationTtl: 48 * 3600 });
+}
+
+// --- Global spend cap ---
+// Hard ceiling on total daily requests regardless of how many devices/IPs are
+// involved — bounds worst-case Anthropic spend even under coordinated abuse.
+async function enforceGlobalCap(env: Env): Promise<void> {
+  const limit = parseInt(env.GLOBAL_DAILY_LIMIT ?? "", 10) || DEFAULT_GLOBAL_DAILY_LIMIT;
+  const key = `global:usage:${todayUTC()}`;
+  const current = parseInt((await env.SUPERPASTE_KV.get(key)) ?? "0", 10);
+
+  if (current >= limit) {
+    console.error(`Global daily cap reached (${limit} requests) — rejecting until midnight UTC`);
+    throw { status: 429, error: "rate_limited", message: "Daily limit reached. Resets at midnight UTC." };
+  }
+
+  await env.SUPERPASTE_KV.put(key, String(current + 1), { expirationTtl: 48 * 3600 });
 }
 
 // --- License key validation (Polar.sh) ---
@@ -124,9 +150,15 @@ async function validateLicense(key: string, env: Env): Promise<boolean> {
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+    const clientIP = request.headers.get("CF-Connecting-IP") ?? "unknown";
 
     // --- Route: POST /v1/validate-license ---
     if (request.method === "POST" && url.pathname === "/v1/validate-license") {
+      const { success } = await env.VALIDATE_LIMITER.limit({ key: clientIP });
+      if (!success) {
+        return json({ error: "too_many_requests", message: "Too many requests. Slow down." }, 429);
+      }
+
       let body: { key?: string };
       try {
         body = await request.json() as { key?: string };
@@ -150,8 +182,16 @@ export default {
     const deviceId = request.headers.get("X-Device-ID") ?? "unknown";
     const licenseKey = request.headers.get("X-License-Key");
 
+    // Per-IP burst limit — X-Device-ID is client-controlled, so per-device
+    // limits alone can be bypassed by rotating IDs. This can't.
+    const { success } = await env.IP_LIMITER.limit({ key: clientIP });
+    if (!success) {
+      return json({ error: "too_many_requests", message: "Too many requests. Slow down." }, 429);
+    }
+
     // Gate: license key or trial
     try {
+      await enforceGlobalCap(env);
       if (licenseKey) {
         const isValid = await validateLicense(licenseKey, env);
         if (!isValid) {
