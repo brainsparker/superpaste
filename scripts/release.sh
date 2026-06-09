@@ -64,6 +64,12 @@ ln -s /Applications "$STAGING/Applications"
 hdiutil create -volname "SuperPaste" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
 rm -rf "$STAGING"
 
+# Sign the DMG container itself (app inside is already signed) so even
+# container-level Gatekeeper checks pass. Must happen before notarization.
+if [ -n "${DEV_ID:-}" ]; then
+    codesign -s "$DEV_ID" --timestamp "$DMG"
+fi
+
 if [ "$SKIP_NOTARIZE" = false ] && [ -n "${DEV_ID:-}" ] && \
    xcrun notarytool history --keychain-profile superpaste-notary >/dev/null 2>&1; then
     echo "==> Notarizing (this can take a few minutes)"
