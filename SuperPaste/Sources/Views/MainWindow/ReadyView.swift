@@ -3,6 +3,7 @@ import SwiftUI
 /// View displayed when SuperPaste is fully configured and ready to use.
 struct ReadyView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.openSettings) private var openSettings
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hasTriedOnce") private var hasTriedOnce = false
 
@@ -170,7 +171,10 @@ struct ReadyView: View {
                     }
                 Spacer()
                 Button {
-                    NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                    // The legacy showSettingsWindow: selector is dead on
+                    // macOS 14+; openSettings is the supported route.
+                    openSettings()
+                    NSApp.activate(ignoringOtherApps: true)
                 } label: {
                     Image(systemName: "gear")
                     Text("Settings")
