@@ -35,6 +35,22 @@ struct SuperPasteApp: App {
             SettingsView()
                 .environmentObject(appState)
         }
+
+        // Menu bar presence — the only ambient signal that the hotkey is
+        // armed, plus pause / recovery / updates without the main window.
+        MenuBarExtra {
+            MenuBarView()
+                .environmentObject(appState)
+        } label: {
+            Image(systemName: menuBarSymbol)
+                .accessibilityLabel("SuperPaste")
+        }
+    }
+
+    private var menuBarSymbol: String {
+        if appState.isPaused { return "pause.circle" }
+        if appState.isProcessing { return "ellipsis.circle" }
+        return "option"
     }
 
     private func setupApp() {

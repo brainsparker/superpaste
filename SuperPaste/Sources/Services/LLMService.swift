@@ -1,14 +1,34 @@
 import Foundation
 
-/// Service for communicating with the SuperPaste backend proxy.
+/// Service for producing the paste text, either through the SuperPaste backend
+/// (default) or directly against the Anthropic API when the user has supplied
+/// their own key (bring-your-own-key mode — free, no SuperPaste servers).
 final class LLMService {
     static let shared = LLMService()
 
     private init() {}
 
-    // MARK: - Request/Response Models
+    // MARK: - Request models
 
-    struct VisionRequest: Encodable {
+    /// The SuperPaste backend contract: just the captured context. The Worker
+    /// owns the model, system prompt, and token limits — clients can't be
+    /// used as a general-purpose Anthropic proxy.
+    private struct ProxyRequest: Encodable {
+        struct Image: Encodable {
+            let data: String
+            let media_type: String
+        }
+        let image: Image
+        let app_name: String?
+        let window_title: String?
+        let tone: String
+        let length: String
+        let personal_context: String?
+    }
+
+    /// Full Anthropic request, used only in bring-your-own-key mode where the
+    /// app talks to api.anthropic.com directly.
+    private struct AnthropicRequest: Encodable {
         let model: String
         let max_tokens: Int
         let system: String
@@ -30,7 +50,7 @@ final class LLMService {
         }
     }
 
-    enum ContentPart: Encodable {
+    private enum ContentPart: Encodable {
         case text(String)
         case image(base64Data: String, mediaType: String)
 
@@ -66,6 +86,7 @@ final class LLMService {
 
     struct AnthropicResponse: Decodable {
         let content: [Content]?
+        let stop_reason: String?
         let error: ErrorInfo?
 
         struct Content: Decodable {
@@ -91,6 +112,9 @@ final class LLMService {
         case invalidResponse
         case emptyResponse
         case imageEncodingFailed
+        case unclearContext     // model couldn't infer what to write
+        case truncatedResponse  // hit max_tokens; pasting half a sentence helps nobody
+        case invalidAPIKey      // BYO-key mode: Anthropic rejected the user's key
 
         var errorDescription: String? {
             switch self {
@@ -114,6 +138,12 @@ final class LLMService {
                 return "Empty response from server."
             case .imageEncodingFailed:
                 return "Failed to encode screenshot."
+            case .unclearContext:
+                return "Couldn't tell what to write from this window."
+            case .truncatedResponse:
+                return "Response was cut off."
+            case .invalidAPIKey:
+                return "Anthropic rejected your API key."
             }
         }
 
@@ -137,6 +167,12 @@ final class LLMService {
                 return "Got an unexpected response \u{2014} try again."
             case .imageEncodingFailed:
                 return "Couldn't process screenshot \u{2014} try a different window."
+            case .unclearContext:
+                return "Couldn't tell what to write here \u{2014} click into a text field and try again."
+            case .truncatedResponse:
+                return "The response ran too long \u{2014} try again."
+            case .invalidAPIKey:
+                return "Your Anthropic API key was rejected \u{2014} check it in Settings."
             }
         }
     }
@@ -144,56 +180,18 @@ final class LLMService {
     // MARK: - API Call
 
     func process(context: ScreenCaptureService.CapturedContext) async throws -> String {
-        guard let base64Image = context.base64EncodedPNG() else {
+        guard let base64Image = context.base64EncodedJPEG() else {
             throw LLMError.imageEncodingFailed
         }
 
-        var contentParts: [ContentPart] = []
-        contentParts.append(.image(base64Data: base64Image, mediaType: "image/png"))
-        contentParts.append(.text(buildTextPrompt(context: context)))
-
-        let personalContext = UserDefaults.standard.string(forKey: "personalContext") ?? ""
-        let tone = ResponseTone(
-            rawValue: UserDefaults.standard.string(forKey: "responseTone") ?? ""
-        ) ?? .matchContext
-        let length = ResponseLength(
-            rawValue: UserDefaults.standard.string(forKey: "responseLength") ?? ""
-        ) ?? .balanced
-
-        let request = VisionRequest(
-            model: APIConfig.model,
-            max_tokens: APIConfig.maxTokens,
-            system: APIConfig.buildSystemPrompt(
-                personalContext: personalContext,
-                tone: tone,
-                length: length
-            ),
-            // Sonnet 4.6 defaults to effort "high"; keep the no-thinking,
-            // low-latency profile the product is built around.
-            thinking: .init(type: "disabled"),
-            output_config: .init(effort: "low"),
-            messages: [
-                .init(role: "user", content: contentParts)
-            ]
-        )
-
-        guard let url = URL(string: APIConfig.baseURL) else {
-            throw LLMError.invalidResponse
-        }
-
-        var urlRequest = URLRequest(url: url)
-        urlRequest.httpMethod = "POST"
-        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
-        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
-            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
-        }
-        urlRequest.timeoutInterval = APIConfig.timeoutInterval
-
-        do {
-            urlRequest.httpBody = try JSONEncoder().encode(request)
-        } catch {
-            throw LLMError.invalidResponse
+        let urlRequest: URLRequest
+        let usingDirectMode: Bool
+        if let userKey = UserAPIKey.current {
+            urlRequest = try buildDirectAnthropicRequest(context: context, base64Image: base64Image, apiKey: userKey)
+            usingDirectMode = true
+        } else {
+            urlRequest = try buildProxyRequest(context: context, base64Image: base64Image)
+            usingDirectMode = false
         }
 
         let data: Data
@@ -214,6 +212,10 @@ final class LLMService {
         switch httpResponse.statusCode {
         case 200...299:
             break
+        case 401 where usingDirectMode, 403 where usingDirectMode:
+            // Talking straight to Anthropic: 401/403 mean the USER's key is
+            // bad, not our trial/license machinery.
+            throw LLMError.invalidAPIKey
         case 402:
             throw LLMError.trialExpired
         case 403:
@@ -248,7 +250,115 @@ final class LLMService {
             throw LLMError.emptyResponse
         }
 
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        // A response that hit the token ceiling ends mid-sentence — pasting it
+        // silently is worse than failing loudly.
+        if anthropicResponse.stop_reason == "max_tokens" {
+            throw LLMError.truncatedResponse
+        }
+
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // The prompt tells the model to emit this sentinel when it can't infer
+        // what belongs in the field. It must never be pasted as literal text.
+        if trimmed.contains(APIConfig.unclearSentinel) {
+            throw LLMError.unclearContext
+        }
+
+        return trimmed
+    }
+
+    // MARK: - Request builders
+
+    private func responseSettings() -> (tone: ResponseTone, length: ResponseLength, personalContext: String) {
+        let personalContext = UserDefaults.standard.string(forKey: "personalContext") ?? ""
+        let tone = ResponseTone(
+            rawValue: UserDefaults.standard.string(forKey: "responseTone") ?? ""
+        ) ?? .matchContext
+        let length = ResponseLength(
+            rawValue: UserDefaults.standard.string(forKey: "responseLength") ?? ""
+        ) ?? .balanced
+        return (tone, length, personalContext)
+    }
+
+    private func buildProxyRequest(
+        context: ScreenCaptureService.CapturedContext,
+        base64Image: String
+    ) throws -> URLRequest {
+        let settings = responseSettings()
+        let request = ProxyRequest(
+            image: .init(data: base64Image, media_type: "image/jpeg"),
+            app_name: context.appName,
+            window_title: context.windowTitle?.isEmpty == false ? context.windowTitle : nil,
+            tone: settings.tone.rawValue,
+            length: settings.length.rawValue,
+            personal_context: settings.personalContext.isEmpty ? nil : settings.personalContext
+        )
+
+        guard let url = URL(string: APIConfig.baseURL) else {
+            throw LLMError.invalidResponse
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
+        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
+            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
+        }
+        urlRequest.timeoutInterval = APIConfig.timeoutInterval
+
+        do {
+            urlRequest.httpBody = try JSONEncoder().encode(request)
+        } catch {
+            throw LLMError.invalidResponse
+        }
+        return urlRequest
+    }
+
+    private func buildDirectAnthropicRequest(
+        context: ScreenCaptureService.CapturedContext,
+        base64Image: String,
+        apiKey: String
+    ) throws -> URLRequest {
+        let settings = responseSettings()
+
+        var contentParts: [ContentPart] = []
+        contentParts.append(.image(base64Data: base64Image, mediaType: "image/jpeg"))
+        contentParts.append(.text(buildTextPrompt(context: context)))
+
+        let request = AnthropicRequest(
+            model: APIConfig.model,
+            max_tokens: APIConfig.maxTokens,
+            system: APIConfig.buildSystemPrompt(
+                personalContext: settings.personalContext,
+                tone: settings.tone,
+                length: settings.length
+            ),
+            // Keep the no-thinking, low-latency profile the product is built around.
+            thinking: .init(type: "disabled"),
+            output_config: .init(effort: "low"),
+            messages: [
+                .init(role: "user", content: contentParts)
+            ]
+        )
+
+        guard let url = URL(string: APIConfig.anthropicDirectURL) else {
+            throw LLMError.invalidResponse
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        urlRequest.setValue(APIConfig.anthropicVersion, forHTTPHeaderField: "anthropic-version")
+        urlRequest.timeoutInterval = APIConfig.timeoutInterval
+
+        do {
+            urlRequest.httpBody = try JSONEncoder().encode(request)
+        } catch {
+            throw LLMError.invalidResponse
+        }
+        return urlRequest
     }
 
     // MARK: - Private

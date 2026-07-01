@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Stage of the HUD processing
@@ -10,6 +11,10 @@ enum HUDStage: Equatable {
     var isError: Bool {
         if case .error = self { return true }
         return false
+    }
+
+    var isWorking: Bool {
+        self == .gathering || self == .thinking
     }
 }
 
@@ -24,6 +29,9 @@ final class HUDState: ObservableObject {
     @AppStorage("hudPosition") var position: HUDPosition = .topRight
     @AppStorage("playSoundOnReady") var playSoundOnReady: Bool = false
 
+    /// Invoked when the user cancels from the HUD (✕ button). Set by AppState.
+    var onCancel: (() -> Void)?
+
     private var autoDismissTask: Task<Void, Never>?
     private var progressAnimationTask: Task<Void, Never>?
 
@@ -34,6 +42,7 @@ final class HUDState: ObservableObject {
         isVisible = true
         stage = .gathering
         currentPhrase = HUDPhrases.randomGathering()
+        announce("SuperPaste is working")
 
         withAnimation(.easeOut(duration: 0.3)) {
             progress = 0.25
@@ -74,6 +83,7 @@ final class HUDState: ObservableObject {
         cancelTasks()
         stage = .ready
         currentPhrase = HUDPhrases.randomReady()
+        announce("Response pasted")
 
         withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
             progress = 1.0
@@ -96,13 +106,16 @@ final class HUDState: ObservableObject {
 
     func showError(_ message: String) {
         cancelTasks()
+        isVisible = true
         stage = .error(message)
         currentPhrase = HUDPhrases.randomError(context: message)
         progress = 0.0
+        announce("SuperPaste error: \(message)")
 
-        // Auto-dismiss error after 5 seconds
+        // Errors stay long enough to actually be read (slow readers, screen
+        // magnifier users). A click dismisses them earlier.
         autoDismissTask = Task {
-            try? await Task.sleep(for: .seconds(5))
+            try? await Task.sleep(for: .seconds(10))
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 dismiss()
@@ -120,6 +133,7 @@ final class HUDState: ObservableObject {
         Task {
             try? await Task.sleep(for: .milliseconds(250))
             await MainActor.run {
+                guard !isVisible else { return } // a newer run took over the HUD
                 stage = .gathering
                 progress = 0.0
                 currentPhrase = ""
@@ -128,6 +142,20 @@ final class HUDState: ObservableObject {
     }
 
     // MARK: - Private
+
+    /// Blind users otherwise get zero feedback for the entire core flow —
+    /// the HUD is purely visual. Announce the transitions that matter.
+    private func announce(_ message: String) {
+        let element: Any = NSApp.mainWindow ?? NSApp as Any
+        NSAccessibility.post(
+            element: element,
+            notification: .announcementRequested,
+            userInfo: [
+                .announcement: message,
+                .priority: NSAccessibilityPriorityLevel.high.rawValue,
+            ]
+        )
+    }
 
     private func cancelTasks() {
         autoDismissTask?.cancel()

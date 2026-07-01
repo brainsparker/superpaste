@@ -119,6 +119,10 @@ struct WelcomeView: View {
             Text("Takes about 30 seconds to set up")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
+
+            Text("7-day free trial \u{00B7} no card required \u{00B7} $5/month after \u{2014} or free with your own API key")
+                .font(.caption)
+                .foregroundColor(.secondary)
         }
     }
 }

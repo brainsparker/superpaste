@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — SuperPaste</title>
+  <meta name="description" content="SuperPaste's privacy policy: one screenshot per hotkey press, never stored, never used for training. What we process and why." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="canonical" href="https://superpaste.ai/privacy" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='42' font-family='-apple-system,sans-serif' font-size='26' font-weight='700' fill='%230071e3' text-anchor='middle'%3E%E2%8C%A5V%3C/text%3E%3C/svg%3E" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #000;
+      --surface-2: #111;
+      --border: rgba(255,255,255,0.08);
+      --text: #f5f5f7;
+      --text-2: rgba(245,245,247,0.6);
+      --blue: #0071e3;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 60px;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .nav-back {
+      font-size: 14px;
+      color: var(--text-2);
+      text-decoration: none;
+    }
+
+    .nav-back:hover { color: var(--text); }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 140px 24px 100px;
+    }
+
+    .page-label {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .updated {
+      font-size: 14px;
+      color: var(--text-2);
+      margin-bottom: 48px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 44px 0 12px;
+    }
+
+    p, li {
+      font-size: 16px;
+      color: var(--text-2);
+      margin-bottom: 14px;
+    }
+
+    ul { padding-left: 22px; margin-bottom: 14px; }
+    li { margin-bottom: 8px; }
+
+    strong { color: var(--text); font-weight: 600; }
+
+    a {
+      color: var(--text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    footer a { color: var(--text-2); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 768px) {
+      nav { padding: 0 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="/">SuperPaste</a>
+    <a class="nav-back" href="/">← Back to superpaste.ai</a>
+  </nav>
+
+  <main>
+    <div class="page-label">Legal</div>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: July 1, 2026</p>
+
+    <p>SuperPaste is built to see as little as possible and keep nothing. This page describes exactly what happens to your data, in plain language. The <a href="https://github.com/brainsparker/superpaste">source code</a> is public if you'd like to verify any of it.</p>
+
+    <h2>What happens when you press the hotkey</h2>
+    <p>When you press ⌥V, SuperPaste captures <strong>one screenshot of your active window</strong> — nothing else on your screen, and never without the hotkey press. That screenshot is sent over HTTPS to the SuperPaste API (a Cloudflare Worker) and forwarded to Anthropic's Claude API to generate the response, which is then pasted at your cursor.</p>
+    <p><strong>SuperPaste does not store, log, or train on your screenshots or responses.</strong> They pass through our API and are discarded. Anthropic processes them under its API data policies, which currently include retention of up to 30 days for abuse monitoring; Anthropic does not train on API data. See <a href="https://www.anthropic.com/legal/privacy">Anthropic's privacy documentation</a> for details.</p>
+
+    <h2>Bring-your-own-key mode</h2>
+    <p>If you enable Settings → "Use your own Anthropic API key," screenshots are sent <strong>directly from your Mac to Anthropic</strong>. Our servers never see them at all.</p>
+
+    <h2>What we do process</h2>
+    <ul>
+      <li><strong>Device ID</strong> — a random UUID generated on your Mac, used to run the free trial and apply rate limits. It is not tied to your name, email, or Apple ID.</li>
+      <li><strong>License key</strong> — sent with requests to validate an active subscription.</li>
+      <li><strong>IP address</strong> — used transiently for rate limiting on our API.</li>
+    </ul>
+
+    <h2>No analytics, no telemetry</h2>
+    <p>The app contains no analytics, telemetry, or crash reporting. It does not phone home in the background. Its only network activity is the generation request you trigger with the hotkey, subscription/trial validation, and checking GitHub releases for app updates when you ask it to.</p>
+
+    <h2>Payments</h2>
+    <p>Subscriptions are handled by <a href="https://polar.sh">Polar</a>, our merchant of record. Polar sees your billing details (name, email, payment method); we never see your card number. Polar's own <a href="https://polar.sh/legal/privacy">privacy policy</a> applies to payment data.</p>
+
+    <h2>Your rights</h2>
+    <p>If you are in the EU/EEA, UK, or another jurisdiction with data-protection law (such as the GDPR), you have the right to access, correct, delete, or export the personal data we hold about you, and to object to or restrict its processing. Because we hold almost nothing — a device UUID, a license key, and transient rate-limiting records — most requests are simple. Email us and we'll handle it.</p>
+
+    <h2>Contact</h2>
+    <p>Questions, requests, or concerns: <a href="mailto:help@superpaste.ai">help@superpaste.ai</a>.</p>
+  </main>
+
+  <footer>
+    © 2026 SuperPaste &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refunds">Refunds</a>
+  </footer>
+
+</body>
+</html>

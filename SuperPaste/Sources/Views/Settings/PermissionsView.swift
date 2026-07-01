@@ -28,7 +28,7 @@ struct PermissionsView: View {
                 permissionCard(
                     icon: "figure.arms.open",
                     title: "Accessibility",
-                    description: "SuperPaste types into your focused field automatically. It only sends a paste keystroke (\u{2318}V) — it does not read text from other apps.",
+                    description: "SuperPaste uses this to watch for its hotkey and to send the paste keystroke (\u{2318}V). It never logs or stores what you type — and the code is open source, so you can check.",
                     isEnabled: appState.accessibilityEnabled,
                     showsRelaunchHelp: false,
                     onOpen: { appState.openAccessibilitySettings() },

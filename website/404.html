@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Page not found — SuperPaste</title>
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#000000" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='42' font-family='-apple-system,sans-serif' font-size='26' font-weight='700' fill='%230071e3' text-anchor='middle'%3E%E2%8C%A5V%3C/text%3E%3C/svg%3E" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #000;
+      --border: rgba(255,255,255,0.08);
+      --text: #f5f5f7;
+      --text-2: rgba(245,245,247,0.6);
+      --blue: #0071e3;
+      --blue-hover: #0077ed;
+      --blue-glow: rgba(0,113,227,0.25);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: absolute;
+      top: 30%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(0,113,227,0.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .code {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 20px;
+      padding: 6px 14px;
+      border: 1px solid rgba(0,113,227,0.3);
+      border-radius: 980px;
+      background: rgba(0,113,227,0.08);
+      position: relative;
+    }
+
+    h1 {
+      font-size: clamp(36px, 7vw, 64px);
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    p {
+      font-size: 18px;
+      color: var(--text-2);
+      max-width: 440px;
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 14px 30px;
+      border-radius: 980px;
+      font-size: 16px;
+      font-weight: 500;
+      text-decoration: none;
+      background: var(--blue);
+      color: #fff;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .btn:hover {
+      background: var(--blue-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px var(--blue-glow);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="code">404</div>
+  <h1>Nothing to paste here.</h1>
+  <p>This page doesn't exist — maybe it moved, maybe it never did. The rest of SuperPaste is right where you left it.</p>
+  <a class="btn" href="/">Back to superpaste.ai</a>
+
+</body>
+</html>

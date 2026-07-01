@@ -4,7 +4,9 @@
 
 SuperPaste is a small native macOS app that captures only the active window when you hit a hotkey, asks the SuperPaste backend for the best response, and pastes it directly at your cursor. No app switching, no prompting, no preview step.
 
-It is fully open source under the MIT license. A one-time **lifetime license** buys you the signed/notarized DMG, future updates, and support — anyone who'd rather compile from source gets the same software, free. There is no subscription and no telemetry.
+It is fully open source under the MIT license. The hosted service is a **$5/month subscription** (cancel anytime) that covers Claude usage — up to **100 AI responses per day** — plus the signed/notarized DMG and in-app update checks. New installs get a **7-day free trial**: no card required, limited to 15 responses/day.
+
+Don't want to subscribe? Enable **Settings → "Use your own Anthropic API key"** and SuperPaste is genuinely free — it works in the paid build and in builds you compile from source, sending screenshots straight from your Mac to Anthropic. No telemetry either way.
 
 ---
 
@@ -24,11 +26,13 @@ It is fully open source under the MIT license. A one-time **lifetime license** b
 
 ## Install
 
-### From the signed DMG (paid)
+### From the signed DMG
 
-Buy a lifetime license, download the signed/notarized DMG, drag SuperPaste to Applications. macOS will let you launch it without any "unidentified developer" friction. License unlocks updates forever — there is no recurring charge.
+Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. You start on the 7-day free trial (no card, 15 responses/day); after that it's $5/month via Polar with 100 responses/day, cancel anytime. The app checks GitHub releases and offers new versions when they're available.
 
-→ Coming soon.
+→ [Download SuperPaste.dmg](https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg)
+
+Even in the paid build, **Settings → "Use your own Anthropic API key"** switches to your own Anthropic account and makes SuperPaste free — no subscription needed.
 
 ### From source (free)
 
@@ -95,9 +99,11 @@ The reset command is also available directly:
 ## Privacy
 
 - SuperPaste captures one active-window screenshot only when you press Option+V.
-- The screenshot is sent to the SuperPaste backend for generation and immediately discarded after processing.
+- The screenshot is sent to the SuperPaste backend for generation and immediately discarded after processing. In bring-your-own-key mode it goes directly from your Mac to Anthropic — the SuperPaste backend never sees it.
 - Accessibility is used for the global hotkey and the final `⌘V` paste.
 - No analytics, no telemetry, no crash reporting. If something goes wrong, please file an issue.
+
+Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https://superpaste.ai/terms) · [Refunds](https://superpaste.ai/refunds)
 
 ## Architecture
 

@@ -21,6 +21,14 @@ final class AppState: ObservableObject {
     @Published private(set) var isProcessing = false
     @Published private(set) var lastError: String?
 
+    /// Last generated response, kept so the user can recover it (menu bar →
+    /// Copy Last Response) after the clipboard is restored or a paste misfires.
+    @Published private(set) var lastResponse: String?
+
+    /// When paused, the hotkey is unregistered and the keystroke belongs to
+    /// other apps again.
+    @Published private(set) var isPaused = false
+
     /// Current state of the main window
     @Published private(set) var mainWindowState: MainWindowState = .permissionRequired
 
@@ -39,6 +47,9 @@ final class AppState: ObservableObject {
     /// Whether a valid license is stored locally (Keychain). Drives UI in Settings.
     @Published private(set) var isLicensed: Bool = LicenseService.shared.hasLocalLicense
 
+    /// Whether a user-supplied Anthropic API key is active (bring-your-own-key mode).
+    @Published private(set) var usingOwnAPIKey: Bool = UserAPIKey.current != nil
+
     /// Activation status shown in TrialExpiredView / Settings
     @Published var licenseActivationState: LicenseActivationState = .idle
 
@@ -56,10 +67,9 @@ final class AppState: ObservableObject {
     @AppStorage("useCount") private(set) var useCount = 0
 
     /// Whether SuperPaste should start when the user logs in.
+    /// Off by default — enabling login items silently right after two invasive
+    /// permission grants is exactly the wrong trust move; the user opts in.
     @AppStorage("launchAtLogin") private var launchAtLogin = false
-
-    /// Tracks the one-time default-on launch-at-login setup after permissions are ready.
-    @AppStorage("hasConfiguredLaunchAtLogin") private var hasConfiguredLaunchAtLogin = false
 
     // MARK: - Services
 
@@ -68,6 +78,7 @@ final class AppState: ObservableObject {
     let clipboardService = ClipboardService.shared
     let llmService = LLMService.shared
     let permissionManager = PermissionManager.shared
+    let updateChecker = UpdateChecker.shared
 
     // MARK: - HUD State
 
@@ -78,6 +89,12 @@ final class AppState: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var processingTask: Task<Void, Never>?
 
+    /// Monotonic pipeline token. Every trigger bumps it; a pipeline only
+    /// mutates shared state (isProcessing, HUD, paste) while its own token is
+    /// still current. Without this, a cancelled pipeline's teardown races the
+    /// next one and two pastes can fire.
+    private var pipelineGeneration = 0
+
     // MARK: - Initialization
 
     init() {
@@ -86,6 +103,13 @@ final class AppState: ObservableObject {
         setupPermissionObserver()
         updateState()
         computeTrialDaysRemaining()
+
+        hudState.onCancel = { [weak self] in
+            self?.cancelProcessing()
+        }
+        hotkeyService.escapeInterceptor = { [weak self] in
+            self?.isProcessing ?? false
+        }
     }
 
     // MARK: - Setup
@@ -94,6 +118,7 @@ final class AppState: ObservableObject {
         permissionManager.startPolling()
         updateState()
         refreshHotkeyRegistrationIfPossible()
+        updateChecker.checkIfStale()
     }
 
     private func setupHotkeySubscription() {
@@ -101,6 +126,13 @@ final class AppState: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in
                 self?.handleHotkeyTrigger()
+            }
+            .store(in: &cancellables)
+
+        hotkeyService.escapePressed
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                self?.cancelProcessing()
             }
             .store(in: &cancellables)
     }
@@ -117,11 +149,17 @@ final class AppState: ObservableObject {
         permissionManager.$accessibilityEnabled
             .receive(on: DispatchQueue.main)
             .sink { [weak self] enabled in
-                self?.accessibilityEnabled = enabled
-                if enabled {
-                    self?.refreshHotkeyRegistrationIfPossible()
+                guard let self else { return }
+                let wasEnabled = self.accessibilityEnabled
+                self.accessibilityEnabled = enabled
+                if enabled && !wasEnabled && self.hotkeyService.isRegistered {
+                    // Revoke + re-grant leaves the old tap dead while
+                    // isRegistered stays true — rebuild it.
+                    self.hotkeyService.reRegister()
+                } else if enabled {
+                    self.refreshHotkeyRegistrationIfPossible()
                 }
-                self?.updateMainWindowState()
+                self.updateMainWindowState()
             }
             .store(in: &cancellables)
 
@@ -150,7 +188,7 @@ final class AppState: ObservableObject {
     }
 
     private func refreshHotkeyRegistrationIfPossible() {
-        guard accessibilityEnabled, !hotkeyService.isRegistered else {
+        guard accessibilityEnabled, !isPaused, !hotkeyService.isRegistered else {
             return
         }
 
@@ -164,25 +202,18 @@ final class AppState: ObservableObject {
             mainWindowState = .permissionRequired
         } else if !accessibilityEnabled {
             mainWindowState = .accessibilityRequired
-        } else if UserDefaults.standard.bool(forKey: "trialExpiredLocally") {
+        } else if UserDefaults.standard.bool(forKey: "trialExpiredLocally") && !usingOwnAPIKey {
             mainWindowState = .trialExpired
         } else {
             mainWindowState = .ready
-            configureLaunchAtLoginByDefaultIfNeeded()
         }
-    }
-
-    private func configureLaunchAtLoginByDefaultIfNeeded() {
-        guard !hasConfiguredLaunchAtLogin else { return }
-        setLaunchAtLogin(true)
-        hasConfiguredLaunchAtLogin = true
     }
 
     private func computeTrialDaysRemaining() {
         // Keep isLicensed in sync with the underlying Keychain state
         isLicensed = LicenseService.shared.hasLocalLicense
 
-        if isLicensed {
+        if isLicensed || usingOwnAPIKey {
             trialDaysRemaining = nil
             return
         }
@@ -206,9 +237,23 @@ final class AppState: ObservableObject {
         updateMainWindowState()
     }
 
+    // MARK: - Pause
+
+    func setPaused(_ paused: Bool) {
+        isPaused = paused
+        if paused {
+            if isProcessing { cancelProcessing() }
+            hotkeyService.unregister()
+        } else {
+            refreshHotkeyRegistrationIfPossible()
+        }
+    }
+
     // MARK: - Hotkey Handler
 
     private func handleHotkeyTrigger() {
+        guard !isPaused else { return }
+
         guard screenRecordingEnabled else {
             hudState.showError("Screen Recording permission required \u{2014} open System Settings to enable.")
             return
@@ -219,99 +264,204 @@ final class AppState: ObservableObject {
             return
         }
 
+        // Keep the trial badge honest even if the app has been running for days.
+        computeTrialDaysRemaining()
+
         guard mainWindowState != .trialExpired else {
-            hudState.showError("Trial ended — enter your license key")
+            hudState.showError("Trial ended — subscribe or add your own API key in Settings")
             return
         }
 
-        // If already processing, cancel and restart
+        // Second press = cancel. Restarting on a fat-fingered double press
+        // would double the wait AND the request cost.
         if isProcessing {
-            processingTask?.cancel()
-            hudState.dismiss()
+            cancelProcessing()
+            return
         }
 
+        pipelineGeneration += 1
+        let generation = pipelineGeneration
         processingTask = Task {
-            await processPipeline()
+            await processPipeline(generation: generation)
         }
+    }
+
+    /// Cancel the in-flight pipeline (Esc, HUD ✕, second hotkey press, pause).
+    func cancelProcessing() {
+        pipelineGeneration += 1
+        processingTask?.cancel()
+        processingTask = nil
+        isProcessing = false
+        hudState.dismiss()
     }
 
     // MARK: - Processing Pipeline
 
-    private func processPipeline() async {
+    private func processPipeline(generation: Int) async {
         isProcessing = true
         lastError = nil
 
         hudState.startGathering()
 
         try? await Task.sleep(for: .milliseconds(100))
-        guard !Task.isCancelled else {
-            isProcessing = false
+        guard isCurrent(generation) else { return }
+
+        // Never capture password managers or anything focused on a secure
+        // input field — the privacy promise has to hold at the worst moment.
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        switch SensitiveContextGuard.check(
+            bundleIdentifier: frontApp?.bundleIdentifier,
+            appName: frontApp?.localizedName
+        ) {
+        case .secureInputActive:
+            failPipeline(generation, message: "A password field is focused \u{2014} SuperPaste won't capture that.")
+            return
+        case .blockedApp(let name):
+            failPipeline(generation, message: "SuperPaste is disabled in \(name) to protect your secrets.")
+            return
+        case .allowed:
+            break
+        }
+
+        // The in-app practice moment needs to capture SuperPaste's own window;
+        // everywhere else our own windows are excluded from capture.
+        let allowOwnWindow = !UserDefaults.standard.bool(forKey: "hasTriedOnce")
+        let context: ScreenCaptureService.CapturedContext
+        do {
+            context = try await screenCaptureService.capture(allowOwnWindow: allowOwnWindow)
+        } catch let error as ScreenCaptureService.CaptureError {
+            failPipeline(generation, message: Self.message(for: error))
+            return
+        } catch {
+            failPipeline(generation, message: "Couldn't capture the active window \u{2014} try again.")
             return
         }
 
-        guard let context = screenCaptureService.capture() else {
-            lastError = "Failed to capture screenshot"
-            hudState.showError("Couldn't capture the active window \u{2014} check Screen Recording permission.")
-            isProcessing = false
-            return
-        }
-
+        guard isCurrent(generation) else { return }
         hudState.startThinking()
 
         do {
             let response = try await llmService.process(context: context)
+            guard isCurrent(generation) else { return }
 
-            guard !Task.isCancelled else {
-                isProcessing = false
+            lastResponse = response
+
+            // If the user switched apps during the round trip, a synthetic ⌘V
+            // would paste AI text into whatever is focused NOW. Don't.
+            let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            if let capturedPID = context.frontmostPID, currentPID != capturedPID {
+                clipboardService.write(response)
+                useCount += 1
+                UserDefaults.standard.set(true, forKey: "hasTriedOnce")
+                hudState.showError("Focus changed \u{2014} response copied. Press \u{2318}V to paste it.")
+                finishPipeline(generation)
                 return
             }
 
+            let previousClipboard = clipboardService.snapshotItems()
             clipboardService.write(response)
+            let ourChangeCount = clipboardService.changeCount
 
             try? await Task.sleep(for: .milliseconds(50))
-            guard !Task.isCancelled else { isProcessing = false; return }
+            guard isCurrent(generation) else {
+                // Cancelled between the clipboard write and the paste: nothing
+                // was pasted, so hand the clipboard straight back.
+                if clipboardService.changeCount == ourChangeCount {
+                    clipboardService.restore(previousClipboard)
+                }
+                return
+            }
             simulatePaste()
 
             useCount += 1
+            // Ends the onboarding practice moment and, with it, permission to
+            // capture SuperPaste's own window.
+            UserDefaults.standard.set(true, forKey: "hasTriedOnce")
             hudState.showReady()
 
+            // Give the target app time to service the paste, then hand the
+            // clipboard back — a paste tool must not eat what the user copied.
+            restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: ourChangeCount)
+
         } catch LLMService.LLMError.trialExpired {
-            guard !Task.isCancelled else { isProcessing = false; return }
+            guard isCurrent(generation) else { return }
             UserDefaults.standard.set(true, forKey: "trialExpiredLocally")
             updateMainWindowState()
-            hudState.dismiss()
-
-        } catch LLMService.LLMError.dailyLimitReached {
-            guard !Task.isCancelled else { isProcessing = false; return }
-            lastError = "Daily limit reached"
-            hudState.showError("Daily limit reached. Resets at midnight.")
+            hudState.showError("Trial ended \u{2014} subscribe or add your own API key in Settings")
 
         } catch let error as LLMService.LLMError {
-            guard !Task.isCancelled else {
-                isProcessing = false
-                return
-            }
+            guard isCurrent(generation) else { return }
             lastError = error.errorDescription
             hudState.showError(error.userFriendlyMessage)
 
         } catch {
-            guard !Task.isCancelled else {
-                isProcessing = false
-                return
-            }
+            guard isCurrent(generation) else { return }
             lastError = error.localizedDescription
             hudState.showError(error.localizedDescription)
         }
 
+        finishPipeline(generation)
+    }
+
+    /// True while this pipeline run is still the active one.
+    private func isCurrent(_ generation: Int) -> Bool {
+        if generation != pipelineGeneration || Task.isCancelled {
+            // A newer run owns the shared state now; don't touch it.
+            return false
+        }
+        return true
+    }
+
+    private func failPipeline(_ generation: Int, message: String) {
+        guard isCurrent(generation) else { return }
+        lastError = message
+        hudState.showError(message)
+        finishPipeline(generation)
+    }
+
+    private func finishPipeline(_ generation: Int) {
+        guard generation == pipelineGeneration else { return }
         isProcessing = false
+    }
+
+    private func restoreClipboardLater(_ previous: [NSPasteboardItem], ifChangeCountStillEquals changeCount: Int) {
+        guard !previous.isEmpty else { return }
+        Task { [weak self] in
+            // Generous delay: a busy app may service the synthetic ⌘V well
+            // after it was posted, and pasting the OLD clipboard into the
+            // reply field would be far worse than a late restore.
+            try? await Task.sleep(for: .milliseconds(1500))
+            guard let self else { return }
+            // Only restore if nothing else (including the user) wrote to the
+            // clipboard since our paste.
+            if self.clipboardService.changeCount == changeCount {
+                self.clipboardService.restore(previous)
+            }
+        }
+    }
+
+    private static func message(for error: ScreenCaptureService.CaptureError) -> String {
+        switch error {
+        case .ownWindowOnly:
+            return "Click into the app you want to paste into, then press \(HotkeyPreset.current.shortName)."
+        case .noWindow:
+            return "Couldn't find a window to capture \u{2014} click into the app you want to paste into."
+        case .blackFrame:
+            return "This window captures as a black frame (protected content) \u{2014} try a different window."
+        case .captureFailed:
+            return "Couldn't capture the active window \u{2014} check Screen Recording permission."
+        }
     }
 
     // MARK: - Auto-Paste
 
     private func simulatePaste() {
         let src = CGEventSource(stateID: .hidSystemState)
-        let vDown = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: true)
-        let vUp   = CGEvent(keyboardEventSource: src, virtualKey: 0x09, keyDown: false)
+        // Resolve the key that actually types "v" on the current layout —
+        // key code 9 is only "v" on ANSI QWERTY.
+        let vKey = KeyboardLayout.vKeyCode
+        let vDown = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: true)
+        let vUp   = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: false)
         vDown?.flags = .maskCommand
         vUp?.flags   = .maskCommand
         vDown?.post(tap: .cghidEventTap)
@@ -321,9 +471,12 @@ final class AppState: ObservableObject {
     // MARK: - Manual Actions
 
     func dismissHUD() {
-        processingTask?.cancel()
-        hudState.dismiss()
-        isProcessing = false
+        cancelProcessing()
+    }
+
+    func copyLastResponse() {
+        guard let lastResponse else { return }
+        clipboardService.write(lastResponse)
     }
 
     func activateLicense(_ key: String) {
@@ -354,6 +507,31 @@ final class AppState: ObservableObject {
         computeTrialDaysRemaining()
         updateMainWindowState()
     }
+
+    // MARK: - Bring-your-own-key
+
+    func setUserAPIKey(_ key: String) {
+        do {
+            try UserAPIKey.set(key)
+            usingOwnAPIKey = UserAPIKey.current != nil
+            if usingOwnAPIKey {
+                UserDefaults.standard.removeObject(forKey: "trialExpiredLocally")
+            }
+            computeTrialDaysRemaining()
+            updateMainWindowState()
+        } catch {
+            lastError = "Couldn't save the API key."
+        }
+    }
+
+    func clearUserAPIKey() {
+        UserAPIKey.clear()
+        usingOwnAPIKey = false
+        computeTrialDaysRemaining()
+        updateMainWindowState()
+    }
+
+    // MARK: - Permissions helpers
 
     func openScreenRecordingSettings() {
         shouldOfferPermissionRelaunch = true

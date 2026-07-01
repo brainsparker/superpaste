@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Service — SuperPaste</title>
+  <meta name="description" content="SuperPaste's terms of service in plain language: MIT-licensed software, a $5/month hosted API subscription, fair use, and cancel-anytime." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="canonical" href="https://superpaste.ai/terms" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='42' font-family='-apple-system,sans-serif' font-size='26' font-weight='700' fill='%230071e3' text-anchor='middle'%3E%E2%8C%A5V%3C/text%3E%3C/svg%3E" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #000;
+      --surface-2: #111;
+      --border: rgba(255,255,255,0.08);
+      --text: #f5f5f7;
+      --text-2: rgba(245,245,247,0.6);
+      --blue: #0071e3;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 60px;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text);
+      text-decoration: none;
+    }
+
+    .nav-back {
+      font-size: 14px;
+      color: var(--text-2);
+      text-decoration: none;
+    }
+
+    .nav-back:hover { color: var(--text); }
+
+    main {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 140px 24px 100px;
+    }
+
+    .page-label {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--blue);
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      font-size: clamp(32px, 5vw, 48px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 12px;
+    }
+
+    .updated {
+      font-size: 14px;
+      color: var(--text-2);
+      margin-bottom: 48px;
+    }
+
+    h2 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 44px 0 12px;
+    }
+
+    p, li {
+      font-size: 16px;
+      color: var(--text-2);
+      margin-bottom: 14px;
+    }
+
+    ul { padding-left: 22px; margin-bottom: 14px; }
+    li { margin-bottom: 8px; }
+
+    strong { color: var(--text); font-weight: 600; }
+
+    a {
+      color: var(--text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
+    footer a { color: var(--text-2); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 768px) {
+      nav { padding: 0 20px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="/">SuperPaste</a>
+    <a class="nav-back" href="/">← Back to superpaste.ai</a>
+  </nav>
+
+  <main>
+    <div class="page-label">Legal</div>
+    <h1>Terms of Service</h1>
+    <p class="updated">Last updated: July 1, 2026</p>
+
+    <p>These are the terms for using SuperPaste and the SuperPaste hosted API. They're written in plain language on purpose. Questions: <a href="mailto:help@superpaste.ai">help@superpaste.ai</a>.</p>
+
+    <h2>The software is open source</h2>
+    <p>The SuperPaste app is licensed under the <a href="https://github.com/brainsparker/superpaste/blob/main/LICENSE">MIT License</a>. You can read it, modify it, compile it, and use it however the MIT license allows — no subscription required for the software itself.</p>
+
+    <h2>What the subscription covers</h2>
+    <p>The <strong>$5/month subscription</strong> pays for the hosted service, not the code:</p>
+    <ul>
+      <li>Hosted API access to Claude — no API key setup, working the moment you install</li>
+      <li>Signed and notarized builds that open without Gatekeeper friction</li>
+      <li>App updates, offered in-app via GitHub releases</li>
+    </ul>
+    <p>New installs include a <strong>7-day free trial</strong> — no card required, limited to 15 responses per day. If you'd rather not subscribe, enable Settings → "Use your own Anthropic API key" and use SuperPaste free with your own Anthropic account.</p>
+
+    <h2>Fair use</h2>
+    <p>The paid plan includes <strong>100 AI responses per day</strong>. This is a fair-use cap so one account can't consume the service for everyone else; in normal personal use you're unlikely to reach it. Requests beyond the cap are declined until the next day.</p>
+
+    <h2>Don't abuse the API</h2>
+    <p>The hosted API is for personal use through the SuperPaste app. Don't script against it, resell access, share license keys, attempt to bypass rate limits or trial limits, or use it to generate content that violates <a href="https://www.anthropic.com/legal/aup">Anthropic's usage policies</a> or applicable law.</p>
+
+    <h2>Cancellation</h2>
+    <p>Cancel anytime through Polar (the merchant of record). Your subscription stays active until the end of the paid period, then hosted generation stops. The app — and bring-your-own-key mode — keep working. Refunds are covered by our <a href="/refunds">refund policy</a>.</p>
+
+    <h2>Termination</h2>
+    <p>We may suspend or terminate hosted API access for accounts that abuse the service (see above). Because the software is MIT licensed, termination only ever applies to the hosted service, never to your right to use the code.</p>
+
+    <h2>No warranty</h2>
+    <p>SuperPaste and the hosted service are provided <strong>"as is"</strong>, without warranty of any kind. AI-generated text can be wrong; you are responsible for reviewing what gets pasted before you rely on it or send it. To the maximum extent permitted by law, our liability is limited to the amount you paid us in the past 12 months.</p>
+
+    <h2>Changes to these terms</h2>
+    <p>If we make material changes, we'll update this page and the date above. Continued use of the hosted service after a change means you accept the new terms.</p>
+
+    <h2>Governing law</h2>
+    <p>These terms are governed by the laws of [JURISDICTION — to be finalized before launch], without regard to conflict-of-law rules.</p>
+  </main>
+
+  <footer>
+    © 2026 SuperPaste &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refunds">Refunds</a>
+  </footer>
+
+</body>
+</html>

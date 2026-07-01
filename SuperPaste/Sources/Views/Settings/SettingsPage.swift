@@ -11,8 +11,9 @@ struct SettingsPage: View {
     @AppStorage("responseTone") private var responseTone: ResponseTone = .matchContext
     @AppStorage("responseLength") private var responseLength: ResponseLength = .balanced
 
-    @State private var currentHotkey = "Option V"
+    @AppStorage("hotkeyPreset") private var hotkeyPreset: HotkeyPreset = .optionV
     @State private var licenseKeyInput = ""
+    @State private var apiKeyInput = ""
 
     var body: some View {
         ScrollView {
@@ -22,6 +23,9 @@ struct SettingsPage: View {
 
                 // License section
                 licenseSection
+
+                // Bring-your-own-key section
+                apiKeySection
 
                 Divider()
 
@@ -137,6 +141,60 @@ struct SettingsPage: View {
         )
     }
 
+    // MARK: - Bring Your Own Key Section
+
+    private var apiKeySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Use Your Own Anthropic API Key")
+                .font(.headline)
+
+            if appState.usingOwnAPIKey {
+                HStack(spacing: 8) {
+                    Image(systemName: "key.fill")
+                        .foregroundColor(.green)
+                    Text("Using your API key — requests go straight from your Mac to Anthropic. No subscription needed.")
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button("Remove") {
+                        appState.clearUserAPIKey()
+                        apiKeyInput = ""
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .buttonStyle(.plain)
+                }
+                .font(.caption)
+                .padding(.vertical, 4)
+            } else {
+                Text("SuperPaste is free forever with your own key: screenshots go directly to Anthropic, never through SuperPaste's servers. You pay Anthropic for what you use (typically well under a cent per paste).")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                HStack(spacing: 8) {
+                    SecureField("sk-ant-…", text: $apiKeyInput)
+                        .textFieldStyle(.roundedBorder)
+
+                    Button("Save") {
+                        appState.setUserAPIKey(apiKeyInput)
+                        apiKeyInput = ""
+                    }
+                    .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                Link("Get an API key from Anthropic →",
+                     destination: URL(string: "https://console.anthropic.com/settings/keys")!)
+                    .font(.caption)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+    }
+
     // MARK: - About You Section
 
     private var aboutYouSection: some View {
@@ -193,26 +251,18 @@ struct SettingsPage: View {
             Text("Hotkey")
                 .font(.headline)
 
-            HStack {
-                Text(currentHotkey)
-                    .font(.system(.body, design: .monospaced))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color(nsColor: .controlBackgroundColor))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color(nsColor: .separatorColor), lineWidth: 1)
-                    )
-
-                Spacer()
+            Picker("Hotkey", selection: $hotkeyPreset) {
+                ForEach(HotkeyPreset.allCases) { preset in
+                    Text(preset.displayName).tag(preset)
+                }
             }
+            .pickerStyle(.radioGroup)
+            .labelsHidden()
 
-            Text("Press Option V from any app while SuperPaste is running to instantly fill the focused field.")
+            Text("Press \(hotkeyPreset.displayName) from any app while SuperPaste is running to instantly fill the focused field. Pick a different combination if the default collides with another shortcut or your keyboard layout (\u{2325}V is a dead key on some European layouts).")
                 .font(.caption)
                 .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .padding()
         .background(

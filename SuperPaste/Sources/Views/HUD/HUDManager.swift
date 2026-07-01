@@ -38,9 +38,12 @@ final class HUDManager: ObservableObject {
             guard let self = self else { return }
 
             Task { @MainActor in
-                // If HUD is visible in ready or error state, dismiss on any key press
-                if self.hudState.isVisible &&
-                   (self.hudState.stage == .ready || self.hudState.stage.isError) {
+                // Typing dismisses the "done" confirmation — the user has moved
+                // on. Errors deliberately survive keystrokes: dismissing a
+                // failure message because the user typed a character means slow
+                // readers never learn why nothing was pasted. Errors go away by
+                // click or timeout instead.
+                if self.hudState.isVisible && self.hudState.stage == .ready {
                     self.hudState.dismiss()
                 }
             }

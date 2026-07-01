@@ -20,6 +20,28 @@ final class ClipboardService {
         pasteboard.setString(string, forType: .string)
     }
 
+    /// Full-fidelity snapshot of everything on the clipboard — images, files,
+    /// rich text, all of it. A plain-string snapshot silently destroys
+    /// anything that isn't text when it's "restored".
+    func snapshotItems() -> [NSPasteboardItem] {
+        (pasteboard.pasteboardItems ?? []).map { item in
+            let copy = NSPasteboardItem()
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                }
+            }
+            return copy
+        }
+    }
+
+    /// Put a snapshot back on the clipboard.
+    func restore(_ items: [NSPasteboardItem]) {
+        guard !items.isEmpty else { return }
+        pasteboard.clearContents()
+        pasteboard.writeObjects(items)
+    }
+
     /// Get clipboard change count (useful for detecting external changes)
     var changeCount: Int {
         pasteboard.changeCount

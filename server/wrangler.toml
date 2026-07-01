@@ -8,10 +8,12 @@ binding = "SUPERPASTE_KV"
 id = "928b1c1767d94ee9881855b2703f0ca8"
 
 [vars]
-# Hard ceiling on total /v1/messages requests per UTC day across ALL users —
-# the spend kill switch. ~$0.01/request on Sonnet 4.6, so 500 ≈ $5/day max.
+# Daily spend kill switches, split by tier so trial abuse can't lock out
+# paying customers. With compressed JPEG captures a request costs well under
+# $0.01 on Sonnet, so 300 trial + 2000 licensed ≈ low-single-digit $/day max.
 # Raise via `wrangler deploy` after editing, no code change needed.
-GLOBAL_DAILY_LIMIT = "500"
+GLOBAL_TRIAL_DAILY_LIMIT = "300"
+GLOBAL_LICENSED_DAILY_LIMIT = "2000"
 
 # Per-IP burst limits (Cloudflare Rate Limiting API). Stops device-ID rotation
 # and endpoint hammering from a single source. Limits are per `period` seconds.

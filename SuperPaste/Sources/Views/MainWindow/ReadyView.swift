@@ -69,17 +69,53 @@ struct ReadyView: View {
 
     // MARK: - First Use
 
+    @State private var practiceReply = ""
+    @FocusState private var practiceFieldFocused: Bool
+
+    /// A supervised first success: the fake email below IS the captured
+    /// context (this window is frontmost), and the reply lands visibly in the
+    /// practice field. No other app, no way to fail unseen.
     private var firstUseSection: some View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 8) {
                     Image(systemName: "hand.point.up.left.fill").foregroundColor(.blue)
-                    Text("Try it now").font(.headline)
+                    Text("Try it right here").font(.headline)
                 }
-                VStack(alignment: .leading, spacing: 10) {
-                    FirstUseStep(number: 1, text: "Open any email, message, or document")
-                    FirstUseStep(number: 2, text: "Place your cursor where you’d type a reply")
-                    FirstUseStep(number: 3, text: "Press Option V and watch what happens")
+
+                // Fake received email — the on-screen context SuperPaste reads.
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "person.crop.circle.fill").foregroundColor(.secondary)
+                        Text("Alex").font(.caption.weight(.semibold))
+                        Text("• Coffee next week?").font(.caption).foregroundColor(.secondary)
+                    }
+                    Text("Hey! Are we still on for coffee next Tuesday? Let me know what time works for you.")
+                        .font(.subheadline)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+
+                TextField("Click here, then press \(HotkeyPreset.current.shortName)", text: $practiceReply, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(2...5)
+                    .focused($practiceFieldFocused)
+                    .accessibilityLabel("Practice reply field")
+
+                if practiceReply.isEmpty {
+                    Text("SuperPaste reads this window and writes the reply into the field — exactly what it does in your real apps.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
+                        Text("That's it. Now try it in any app.")
+                            .font(.caption.weight(.medium))
+                            .foregroundColor(.green)
+                    }
                 }
             }
             .padding(16)
@@ -138,18 +174,30 @@ struct ReadyView: View {
 
     private var hotkeyVisual: some View {
         HStack(spacing: 6) {
-            KeyCap(label: "\u{2325} Option")
-            Text("+").font(.title3.weight(.light)).foregroundColor(.secondary)
-            KeyCap(label: "V")
+            ForEach(hotkeyKeyCaps, id: \.self) { label in
+                if label == "+" {
+                    Text("+").font(.title3.weight(.light)).foregroundColor(.secondary)
+                } else {
+                    KeyCap(label: label)
+                }
+            }
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private var hotkeyKeyCaps: [String] {
+        switch HotkeyPreset.current {
+        case .optionV: return ["\u{2325} Option", "+", "V"]
+        case .controlOptionV: return ["\u{2303} Control", "+", "\u{2325} Option", "+", "V"]
+        case .commandShiftV: return ["\u{2318} Command", "+", "\u{21E7} Shift", "+", "V"]
+        }
     }
 
     private var availabilityNote: some View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "power")
                 .foregroundColor(.secondary)
-            Text("SuperPaste starts at login so Option V is ready without opening this window. If you quit SuperPaste completely, macOS stops sending it the hotkey until it is opened again.")
+            Text("Turn on \u{201C}Launch at login\u{201D} below so the hotkey is ready without opening this window. You can pause or quit SuperPaste any time from the \u{2325} menu bar icon.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

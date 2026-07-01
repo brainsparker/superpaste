@@ -32,13 +32,23 @@
     "offers": {
       "@type": "Offer",
       "price": "5.00",
-      "priceCurrency": "USD"
+      "priceCurrency": "USD",
+      "description": "$5 per month, cancel anytime. 7-day free trial, no card required.",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "5.00",
+        "priceCurrency": "USD",
+        "billingIncrement": 1,
+        "unitCode": "MON",
+        "referenceQuantity": {
+          "@type": "QuantitativeValue",
+          "value": "1",
+          "unitCode": "MON"
+        }
+      }
     }
   }
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -62,7 +72,7 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
       font-size: 17px;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
@@ -227,7 +237,7 @@
 
     .hero-footnote {
       font-size: 13px;
-      color: var(--text-3);
+      color: var(--text-2);
     }
 
     /* Animated demo */
@@ -688,7 +698,7 @@
 
     .price-period {
       font-size: 15px;
-      color: var(--text-3);
+      color: var(--text-2);
       margin-bottom: 32px;
     }
 
@@ -712,7 +722,7 @@
 
     .pricing-trial {
       font-size: 13px;
-      color: var(--text-3);
+      color: var(--text-2);
       text-align: center;
       margin-top: 16px;
     }
@@ -720,17 +730,24 @@
     .pricing-oss {
       margin-top: 32px;
       font-size: 14px;
-      color: var(--text-3);
+      color: var(--text-2);
       max-width: 420px;
     }
 
     .pricing-oss a {
-      color: var(--text-2);
+      color: var(--text);
       text-decoration: underline;
       text-underline-offset: 3px;
     }
 
     .pricing-oss a:hover { color: var(--text); }
+
+    /* Maker */
+    #maker p a {
+      color: var(--text);
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
 
     /* FAQ */
     #faq { border-top: 1px solid var(--border); }
@@ -786,23 +803,25 @@
 
     .footer-left {
       font-size: 13px;
-      color: var(--text-3);
+      color: var(--text-2);
     }
 
     .footer-links {
       display: flex;
       gap: 28px;
       list-style: none;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
     .footer-links a {
       font-size: 13px;
-      color: var(--text-3);
+      color: var(--text-2);
       text-decoration: none;
       transition: color 0.15s;
     }
 
-    .footer-links a:hover { color: var(--text-2); }
+    .footer-links a:hover { color: var(--text); }
 
     /* Divider */
     .full-divider {
@@ -961,6 +980,26 @@
 
   <hr class="full-divider" />
 
+  <!-- vs Apple Intelligence -->
+  <section id="writing-tools">
+    <div class="section-label">SuperPaste vs. Writing Tools</div>
+    <h2 class="section-title">Why not just use Apple Intelligence?</h2>
+    <p class="section-sub">Writing Tools is for editing. SuperPaste is for the blank field before it.</p>
+
+    <div class="privacy-grid">
+      <div class="privacy-card">
+        <h3>Apple's Writing Tools</h3>
+        <p class="usecase-on">Rewrites text you've already written and selected — proofread it, shorten it, change the tone. But an empty reply box has nothing to select, so you still have to type the first draft yourself.</p>
+      </div>
+      <div class="privacy-card">
+        <h3>SuperPaste</h3>
+        <p class="usecase-on">Composes from an empty cursor using what's already on your screen — the email you're replying to, the question in the form, the thread above the box. Press ⌥V and the draft appears.</p>
+      </div>
+    </div>
+  </section>
+
+  <hr class="full-divider" />
+
   <!-- Privacy -->
   <section id="privacy">
     <div class="section-label">Privacy</div>
@@ -1005,7 +1044,7 @@
       </div>
     </div>
 
-    <p class="privacy-footnote">Don't take our word for it — <a href="#open-source">read the code</a>.</p>
+    <p class="privacy-footnote">Don't take our word for it — <a href="#open-source">read the code</a>, or the full <a href="/privacy">privacy policy</a>.</p>
   </section>
 
   <!-- Open source -->
@@ -1021,12 +1060,12 @@
           <p>The screenshot capture, the API call, the discard — it's all on GitHub. No hidden telemetry, because there's nowhere to hide it.</p>
         </div>
         <div class="oss-point">
-          <h3>Compile it yourself, free.</h3>
-          <p>Bring your own Anthropic API key and the app costs nothing, forever.</p>
+          <h3>Bring your own API key, free.</h3>
+          <p>Flip on Settings → "Use your own Anthropic API key" and SuperPaste is free forever — you pay Anthropic directly for what you use. Works in the official download and in builds you compile from source.</p>
         </div>
         <div class="oss-point">
           <h3>Or pay $5/month and skip the setup.</h3>
-          <p>The hosted plan covers Claude usage and works the minute the DMG opens. Same code either way.</p>
+          <p>The hosted plan covers Claude usage — up to 100 responses a day — and works the minute the DMG opens. Same code either way.</p>
         </div>
         <div class="oss-actions">
           <a class="btn btn-ghost" href="https://github.com/brainsparker/superpaste">View on GitHub</a>
@@ -1062,20 +1101,21 @@ Building SuperPaste…
       <div class="price-period">per month &nbsp;·&nbsp; cancel anytime</div>
 
       <ul class="pricing-features">
-        <li><span class="check">✓</span> Unlimited use across all your apps</li>
+        <li><span class="check">✓</span> 100 AI responses a day — more than anyone actually uses</li>
         <li><span class="check">✓</span> Powered by Claude — the best AI for writing</li>
         <li><span class="check">✓</span> Personal context — write in your voice</li>
         <li><span class="check">✓</span> Auto-paste — no ⌘V required</li>
+        <li><span class="check">✓</span> Signed app with built-in update checks</li>
         <li><span class="check">✓</span> macOS 14 Sonoma and later</li>
       </ul>
 
       <a class="btn btn-primary btn-large" href="#download" style="width: 100%; justify-content: center;">
         Start free trial
       </a>
-      <p class="pricing-trial">7 days free &nbsp;·&nbsp; No credit card to start</p>
+      <p class="pricing-trial">7 days free, 15 responses/day during the trial &nbsp;·&nbsp; No credit card to start</p>
     </div>
 
-    <p class="pricing-oss">Prefer to run it yourself? SuperPaste is <a href="#open-source">open source</a> — compile it with your own Anthropic API key, free forever.</p>
+    <p class="pricing-oss">Prefer not to subscribe? Turn on Settings → "Use your own Anthropic API key" and SuperPaste is free forever — in the official app or a build you <a href="#open-source">compile from source</a>.</p>
   </section>
 
   <!-- FAQ -->
@@ -1089,8 +1129,12 @@ Building SuperPaste…
         <p>Screen Recording is the macOS permission for capturing the active window — one screenshot, only when you press ⌥V. Accessibility lets SuperPaste register the global hotkey and paste at your cursor. It never records video and never reads your keystrokes.</p>
       </details>
       <details class="faq-item">
+        <summary>macOS says SuperPaste "can record your screen and audio." Should I worry?</summary>
+        <p>No — that's a standard reminder macOS shows monthly for every app with Screen Recording permission (screenshot tools, screen recorders, video-call apps), and developers can't turn it off. SuperPaste captures a single frame of a single window, only at the moment you press ⌥V. It never records audio or video, and the <a href="https://github.com/brainsparker/superpaste" style="color: var(--text-2);">code is open source</a> if you'd like to verify.</p>
+      </details>
+      <details class="faq-item">
         <summary>Is my screen data stored anywhere?</summary>
-        <p>No. The screenshot is sent over an encrypted connection, used to generate one response, and discarded. No storage, no training, no logs of your content.</p>
+        <p>SuperPaste never stores, logs, or trains on your screenshots or responses. Each screenshot is sent over an encrypted connection, used to generate one response, and discarded. Anthropic processes it under its API data policies (retained up to 30 days for abuse monitoring, not used for training). Full details in the <a href="/privacy" style="color: var(--text-2);">privacy policy</a>.</p>
       </details>
       <details class="faq-item">
         <summary>Which apps does it work in?</summary>
@@ -1106,7 +1150,7 @@ Building SuperPaste…
       </details>
       <details class="faq-item">
         <summary>What happens after the 7-day trial?</summary>
-        <p>Generation pauses until you subscribe — $5/month, cancel anytime. Nothing is auto-charged; the trial needs no card. Or compile from source with your own API key, free.</p>
+        <p>Generation pauses until you subscribe — $5/month, cancel anytime, with 100 responses a day. Nothing is auto-charged; the trial needs no card. Or add your own Anthropic API key in Settings and keep using SuperPaste free.</p>
       </details>
       <details class="faq-item">
         <summary>Is it really open source?</summary>
@@ -1131,9 +1175,18 @@ Building SuperPaste…
         View source on GitHub
       </a>
     </div>
-    <p style="font-size: 13px; color: var(--text-3); margin-top: 16px;">
+    <p style="font-size: 13px; color: var(--text-2); margin-top: 16px;">
       macOS 14 Sonoma or later &nbsp;·&nbsp; Apple Silicon &amp; Intel
     </p>
+  </section>
+
+  <hr class="full-divider" />
+
+  <!-- Maker -->
+  <section id="maker">
+    <div class="section-label">Who made this</div>
+    <h2 class="section-title" style="font-size: clamp(26px, 4vw, 36px);">Hi — I'm Brian.</h2>
+    <p class="section-sub" style="max-width: 640px;">I built SuperPaste because I kept retyping replies when the answer was already sitting on my screen. It's a small tool that does one thing, and the code is public so you can see exactly what it does. If it breaks — or you have an idea — <a href="https://github.com/brainsparker">find me on GitHub</a>.</p>
   </section>
 
   <!-- Footer -->
@@ -1142,7 +1195,10 @@ Building SuperPaste…
     <ul class="footer-links">
       <li><a href="https://github.com/brainsparker/superpaste">GitHub</a></li>
       <li><a href="mailto:help@superpaste.ai">Support</a></li>
-      <li><a href="https://buy.polar.sh/polar_cl_YS3DZpcmFoh7GDvDvRxWezZLUmPKgwf9Mb6T618NFdC">Buy a license</a></li>
+      <li><a href="/privacy">Privacy</a></li>
+      <li><a href="/terms">Terms</a></li>
+      <li><a href="/refunds">Refunds</a></li>
+      <li><a href="https://buy.polar.sh/polar_cl_YS3DZpcmFoh7GDvDvRxWezZLUmPKgwf9Mb6T618NFdC">Subscribe</a></li>
     </ul>
   </footer>
 

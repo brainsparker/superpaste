@@ -95,6 +95,11 @@ struct PermissionsSetupView: View {
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
+            Text("Heads up: macOS shows every screenshot app a monthly “can record your screen” reminder. That's the OS being cautious, not SuperPaste doing anything new — it still captures one frame of one window, only when you press the hotkey.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
             if appState.shouldOfferPermissionRelaunch && !appState.screenRecordingEnabled {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("If System Settings already shows SuperPaste enabled, relaunch once to finish applying Screen Recording.")
