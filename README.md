@@ -28,7 +28,7 @@ Don't want to subscribe? Enable **Settings → "Use your own Anthropic API key"*
 
 ### From the signed DMG
 
-Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. You start on the 7-day free trial (no card, 15 responses/day); after that it's $5/month via Polar with 100 responses/day, cancel anytime. The app checks GitHub releases and offers new versions when they're available.
+Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. You start on the 7-day free trial (no card, 15 responses/day); after that it's $5/month via Polar with 100 responses/day, cancel anytime. SuperPaste checks for signed updates automatically; a red dot appears in the menu bar and Settings when one is ready, and you can install it without leaving the app.
 
 → [Download SuperPaste.dmg](https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg)
 
@@ -110,6 +110,7 @@ Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https:/
 - **Swift / SwiftUI** native macOS app, built with SwiftPM
 - **Cloudflare Worker** backend proxy for model requests
 - **CGEvent** tap for the hotkey, **NSPasteboard** + synthesized `⌘V` for the paste
+- **Sparkle 2** for signed, automatic in-app updates
 
 ## Contributing
 

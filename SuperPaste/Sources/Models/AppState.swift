@@ -78,7 +78,6 @@ final class AppState: ObservableObject {
     let clipboardService = ClipboardService.shared
     let llmService = LLMService.shared
     let permissionManager = PermissionManager.shared
-    let updateChecker = UpdateChecker.shared
 
     // MARK: - HUD State
 
@@ -107,6 +106,12 @@ final class AppState: ObservableObject {
         hudState.onCancel = { [weak self] in
             self?.cancelProcessing()
         }
+        hudState.onRetry = { [weak self] in
+            self?.retryLastRequest()
+        }
+        hudState.onCopyResponse = { [weak self] in
+            self?.copyLastResponse()
+        }
         hotkeyService.escapeInterceptor = { [weak self] in
             self?.isProcessing ?? false
         }
@@ -118,7 +123,6 @@ final class AppState: ObservableObject {
         permissionManager.startPolling()
         updateState()
         refreshHotkeyRegistrationIfPossible()
-        updateChecker.checkIfStale()
     }
 
     private func setupHotkeySubscription() {
@@ -293,6 +297,13 @@ final class AppState: ObservableObject {
         processingTask = nil
         isProcessing = false
         hudState.dismiss()
+    }
+
+    /// Show the status bubble without taking a screenshot or making an AI
+    /// request. Used by the General settings placement control.
+    func previewHUD() {
+        guard !isProcessing else { return }
+        hudState.preview()
     }
 
     // MARK: - Processing Pipeline
@@ -477,6 +488,11 @@ final class AppState: ObservableObject {
     func copyLastResponse() {
         guard let lastResponse else { return }
         clipboardService.write(lastResponse)
+    }
+
+    func retryLastRequest() {
+        guard !isProcessing else { return }
+        handleHotkeyTrigger()
     }
 
     func activateLicense(_ key: String) {

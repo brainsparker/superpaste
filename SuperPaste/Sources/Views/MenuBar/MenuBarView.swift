@@ -4,7 +4,7 @@ import SwiftUI
 /// and the fastest route to pause, recovery, and updates.
 struct MenuBarView: View {
     @EnvironmentObject var appState: AppState
-    @ObservedObject private var updateChecker = UpdateChecker.shared
+    @ObservedObject private var updateController = UpdateController.shared
 
     var body: some View {
         Group {
@@ -23,14 +23,20 @@ struct MenuBarView: View {
 
             Divider()
 
-            if let update = updateChecker.availableUpdate {
-                Button("Update Available — v\(update.version)…") {
-                    updateChecker.openReleasePage()
+            if let update = updateController.availableUpdate {
+                Button {
+                    updateController.installAvailableUpdate()
+                } label: {
+                    Label("Install SuperPaste \(update.version)…", systemImage: "arrow.down.circle.fill")
                 }
+            } else if updateController.isChecking {
+                Button("Checking for Updates…") {}
+                    .disabled(true)
             } else {
-                Button("Check for Updates") {
-                    updateChecker.check()
+                Button("Check for Updates…") {
+                    updateController.checkForUpdates()
                 }
+                .disabled(!updateController.canCheckForUpdates)
             }
 
             SettingsLink {

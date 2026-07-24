@@ -4,15 +4,16 @@ import SwiftUI
 struct ReadyView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.openSettings) private var openSettings
+    @ObservedObject private var updateController = UpdateController.shared
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hasTriedOnce") private var hasTriedOnce = false
 
     private let tips = [
         "Works in any app — email, Slack, code editors, forms, documents.",
         "SuperPaste matches the tone of the active window. Casual for chat, professional for email.",
-        "Stuck on an error? Press Option V while looking at it for an instant explanation.",
-        "Writing a doc? Place your cursor at the end and press Option V to continue your thought.",
-        "SuperPaste only captures your active window when you press Option V.",
+        "Stuck on an error? Press \u{2325}V while looking at it for an instant explanation.",
+        "Writing a doc? Place your cursor at the end and press \u{2325}V to continue your thought.",
+        "SuperPaste only captures your active window when you press \u{2325}V.",
     ]
 
     var body: some View {
@@ -22,6 +23,14 @@ struct ReadyView: View {
                 .padding(.bottom, 16)
 
             Divider()
+
+            if updateController.availableUpdate != nil {
+                UpdateBanner()
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 14)
+
+                Divider()
+            }
 
             if !hasTriedOnce {
                 firstUseSection.padding(24)
@@ -60,7 +69,7 @@ struct ReadyView: View {
                     Text(error).foregroundColor(.secondary).lineLimit(2)
                 } else {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                    Text("Ready").foregroundColor(.green).fontWeight(.medium)
+                    Text("Ready to paste").foregroundColor(.green).fontWeight(.medium)
                 }
             }
             .font(.subheadline)
@@ -130,24 +139,8 @@ struct ReadyView: View {
 
     private var returningUserSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            if appState.useCount > 0 {
-                HStack(spacing: 8) {
-                    Image(systemName: "option").foregroundColor(.blue)
-                    Text("Used \(appState.useCount) time\(appState.useCount == 1 ? "" : "s")")
-                        .font(.subheadline).foregroundColor(.secondary)
-                }
-            }
             hotkeyVisual
-            availabilityNote
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Tip").font(.caption.weight(.semibold)).foregroundColor(.secondary)
-                Text(tips[appState.useCount % tips.count])
-                    .font(.subheadline).foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+            returningGuideCard
 
             if let days = appState.trialDaysRemaining {
                 HStack {
@@ -197,7 +190,9 @@ struct ReadyView: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "power")
                 .foregroundColor(.secondary)
-            Text("Turn on \u{201C}Launch at login\u{201D} below so the hotkey is ready without opening this window. You can pause or quit SuperPaste any time from the \u{2325} menu bar icon.")
+            Text(launchAtLogin
+                ? "SuperPaste starts at login, so the hotkey is ready whenever you are."
+                : "Turn on “Launch at login” below so the hotkey is ready without opening this window.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -205,6 +200,53 @@ struct ReadyView: View {
         .padding(10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
+    }
+
+    private var returningGuideCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: "option")
+                    .foregroundColor(.blue)
+                Text("Used \(appState.useCount) time\(appState.useCount == 1 ? "" : "s")")
+                Spacer()
+                Image(systemName: "lock.shield.fill")
+                    .foregroundColor(.green)
+                Text("On demand only")
+            }
+            .font(.caption.weight(.medium))
+            .foregroundColor(.secondary)
+
+            Divider()
+
+            HStack(alignment: .top, spacing: 8) {
+                Image(systemName: "power")
+                    .foregroundColor(.secondary)
+                Text(launchAtLogin
+                    ? "Starts at login, so the hotkey is always ready."
+                    : "Turn on Launch at login below to keep the hotkey ready.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("A little trick")
+                    .font(.caption.weight(.semibold))
+                    .foregroundColor(.secondary)
+                Text(tips[appState.useCount % tips.count])
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
     }
 
     // MARK: - Footer
@@ -229,7 +271,7 @@ struct ReadyView: View {
                 }
             }
             .font(.subheadline)
-            Text("Powered by Claude")
+            Text("AI by Anthropic")
                 .font(.caption).foregroundColor(.secondary)
         }
     }

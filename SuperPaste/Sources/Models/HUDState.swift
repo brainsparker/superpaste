@@ -18,12 +18,41 @@ enum HUDStage: Equatable {
     }
 }
 
+enum HUDRecoveryAction: Equatable {
+    case openSettings
+    case retry
+    case copyResponse
+
+    var title: String {
+        switch self {
+        case .openSettings:
+            return "Open Settings"
+        case .retry:
+            return "Try Again"
+        case .copyResponse:
+            return "Copy Response"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .openSettings:
+            return "gear"
+        case .retry:
+            return "arrow.clockwise"
+        case .copyResponse:
+            return "doc.on.doc"
+        }
+    }
+}
+
 /// Observable state for the HUD
 @MainActor
 final class HUDState: ObservableObject {
     @Published var stage: HUDStage = .gathering
-    @Published var progress: Double = 0.0
     @Published var currentPhrase: String = ""
+    @Published var secondaryPhrase: String?
+    @Published var recoveryAction: HUDRecoveryAction?
     @Published var isVisible: Bool = false
 
     @AppStorage("hudPosition") var position: HUDPosition = .topRight
@@ -31,9 +60,13 @@ final class HUDState: ObservableObject {
 
     /// Invoked when the user cancels from the HUD (✕ button). Set by AppState.
     var onCancel: (() -> Void)?
+    var onOpenSettings: (() -> Void)?
+    var onRetry: (() -> Void)?
+    var onCopyResponse: (() -> Void)?
 
     private var autoDismissTask: Task<Void, Never>?
-    private var progressAnimationTask: Task<Void, Never>?
+    private var secondaryPhraseTask: Task<Void, Never>?
+    private var previewTask: Task<Void, Never>?
 
     // MARK: - Stage Transitions
 
@@ -41,40 +74,25 @@ final class HUDState: ObservableObject {
         cancelTasks()
         isVisible = true
         stage = .gathering
-        currentPhrase = HUDPhrases.randomGathering()
+        currentPhrase = "Reading this window…"
+        secondaryPhrase = nil
+        recoveryAction = nil
         announce("SuperPaste is working")
-
-        withAnimation(.easeOut(duration: 0.3)) {
-            progress = 0.25
-        }
     }
 
     func startThinking() {
         stage = .thinking
-        currentPhrase = HUDPhrases.randomThinking()
+        currentPhrase = "Writing your reply…"
+        secondaryPhrase = nil
+        recoveryAction = nil
 
-        // Animate progress from 25% to 90%
-        withAnimation(.easeOut(duration: 0.5)) {
-            progress = 0.6
-        }
-
-        // Continue pulsing progress while thinking
-        progressAnimationTask = Task {
-            while !Task.isCancelled && stage == .thinking {
-                try? await Task.sleep(for: .seconds(1.5))
-                guard !Task.isCancelled && stage == .thinking else { break }
-
-                // Rotate phrase
-                await MainActor.run {
-                    currentPhrase = HUDPhrases.randomThinking()
-                }
-
-                // Pulse progress between 60% and 90%
-                await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.8)) {
-                        progress = progress < 0.75 ? 0.9 : 0.6
-                    }
-                }
+        // Most requests finish quickly. Save the playful copy for a wait long
+        // enough that a little reassurance is useful instead of distracting.
+        secondaryPhraseTask = Task {
+            try? await Task.sleep(for: .seconds(4))
+            guard !Task.isCancelled && stage == .thinking else { return }
+            await MainActor.run {
+                secondaryPhrase = HUDPhrases.randomSlowThinking()
             }
         }
     }
@@ -82,21 +100,19 @@ final class HUDState: ObservableObject {
     func showReady() {
         cancelTasks()
         stage = .ready
-        currentPhrase = HUDPhrases.randomReady()
+        currentPhrase = "Pasted"
+        secondaryPhrase = "Right where you left off."
+        recoveryAction = nil
         announce("Response pasted")
-
-        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-            progress = 1.0
-        }
 
         // Play sound if enabled
         if playSoundOnReady {
             NSSound.beep()
         }
 
-        // Auto-dismiss after 1.5 seconds (auto-paste fires immediately, brief confirmation is enough)
+        // Auto-paste fires immediately; the confirmation only needs a beat.
         autoDismissTask = Task {
-            try? await Task.sleep(for: .seconds(1.5))
+            try? await Task.sleep(for: .milliseconds(900))
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 dismiss()
@@ -108,8 +124,9 @@ final class HUDState: ObservableObject {
         cancelTasks()
         isVisible = true
         stage = .error(message)
-        currentPhrase = HUDPhrases.randomError(context: message)
-        progress = 0.0
+        currentPhrase = "Couldn't paste"
+        secondaryPhrase = nil
+        recoveryAction = Self.recoveryAction(for: message)
         announce("SuperPaste error: \(message)")
 
         // Errors stay long enough to actually be read (slow readers, screen
@@ -119,6 +136,25 @@ final class HUDState: ObservableObject {
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 dismiss()
+            }
+        }
+    }
+
+    /// Lets people confirm the bubble's placement and personality without
+    /// spending a request or capturing their screen.
+    func preview() {
+        cancelTasks()
+        isVisible = true
+        stage = .thinking
+        currentPhrase = "Writing your reply…"
+        secondaryPhrase = HUDPhrases.randomSlowThinking()
+        recoveryAction = nil
+
+        previewTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled && stage == .thinking else { return }
+            await MainActor.run {
+                showReady()
             }
         }
     }
@@ -135,8 +171,9 @@ final class HUDState: ObservableObject {
             await MainActor.run {
                 guard !isVisible else { return } // a newer run took over the HUD
                 stage = .gathering
-                progress = 0.0
                 currentPhrase = ""
+                secondaryPhrase = nil
+                recoveryAction = nil
             }
         }
     }
@@ -160,7 +197,36 @@ final class HUDState: ObservableObject {
     private func cancelTasks() {
         autoDismissTask?.cancel()
         autoDismissTask = nil
-        progressAnimationTask?.cancel()
-        progressAnimationTask = nil
+        secondaryPhraseTask?.cancel()
+        secondaryPhraseTask = nil
+        previewTask?.cancel()
+        previewTask = nil
+    }
+
+    private static func recoveryAction(for message: String) -> HUDRecoveryAction? {
+        let normalized = message.lowercased()
+
+        if normalized.contains("permission")
+            || normalized.contains("settings")
+            || normalized.contains("trial ended") {
+            return .openSettings
+        }
+
+        if normalized.contains("response copied") || normalized.contains("focus changed") {
+            return .copyResponse
+        }
+
+        if normalized.contains("try again")
+            || normalized.contains("network")
+            || normalized.contains("connect")
+            || normalized.contains("internet")
+            || normalized.contains("server")
+            || normalized.contains("timeout")
+            || normalized.contains("took too long")
+            || normalized.contains("capture") {
+            return .retry
+        }
+
+        return nil
     }
 }

@@ -6,11 +6,11 @@ struct HowItWorksPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Title
-                Text("How It Works")
+                Text("Quick Start")
                     .font(.title2.bold())
 
                 // Description
-                Text("SuperPaste sees your active window and writes what you need. No copying, no prompting, no app-switching.")
+                Text("Three steps, then the right words appear wherever your cursor is waiting.")
                     .foregroundColor(.secondary)
 
                 // Steps

@@ -5,6 +5,7 @@ import Darwin
 @main
 struct SuperPasteApp: App {
     @StateObject private var appState = AppState()
+    @StateObject private var updateController = UpdateController.shared
     @State private var hudManager: HUDManager?
 
     init() {
@@ -42,8 +43,26 @@ struct SuperPasteApp: App {
             MenuBarView()
                 .environmentObject(appState)
         } label: {
-            Image(systemName: menuBarSymbol)
-                .accessibilityLabel("SuperPaste")
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: menuBarSymbol)
+
+                if updateController.availableUpdate != nil {
+                    Circle()
+                        .fill(.red)
+                        .frame(width: 6, height: 6)
+                        .overlay(
+                            Circle()
+                                .stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1)
+                        )
+                        .offset(x: 4, y: -3)
+                        .accessibilityHidden(true)
+                }
+            }
+            .accessibilityLabel(
+                updateController.availableUpdate == nil
+                    ? "SuperPaste"
+                    : "SuperPaste, update available"
+            )
         }
     }
 

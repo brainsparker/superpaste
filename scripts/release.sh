@@ -21,6 +21,8 @@ SPM="$REPO/SuperPaste"
 DIST="$REPO/dist"
 APP="$DIST/SuperPaste.app"
 DMG="$DIST/SuperPaste.dmg"
+UPDATES_DIR="$DIST/updates"
+APPCAST="$UPDATES_DIR/appcast.xml"
 SKIP_NOTARIZE=false
 [[ "${1:-}" == "--skip-notarize" ]] && SKIP_NOTARIZE=true
 
@@ -40,6 +42,7 @@ cp "$SPM/Resources/AppIcon.icns"     "$APP/Contents/Resources/"
 if [ -d "$SPM/.build/release/SuperPaste_SuperPaste.bundle" ]; then
     cp -r "$SPM/.build/release/SuperPaste_SuperPaste.bundle/." "$APP/Contents/Resources/"
 fi
+"$REPO/scripts/embed-sparkle.sh" "$SPM" "$APP"
 
 echo "==> Signing"
 DEV_ID=$(security find-identity -v -p codesigning | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"') || true
@@ -79,17 +82,56 @@ else
     echo "==> Skipping notarization (no Developer ID or no 'superpaste-notary' profile)"
 fi
 
+echo "==> Generating signed Sparkle appcast"
+GENERATE_APPCAST="$SPM/.build/artifacts/sparkle/Sparkle/bin/generate_appcast"
+if [ ! -x "$GENERATE_APPCAST" ]; then
+    echo "Sparkle's generate_appcast tool is missing. Run 'swift package resolve' in $SPM." >&2
+    exit 1
+fi
+
+mkdir -p "$UPDATES_DIR"
+cp "$DMG" "$UPDATES_DIR/SuperPaste.dmg"
+
+NOTES_SOURCE="$REPO/release-notes/$VERSION.md"
+NOTES_ASSET="$UPDATES_DIR/SuperPaste.md"
+if [ -f "$NOTES_SOURCE" ]; then
+    cp "$NOTES_SOURCE" "$NOTES_ASSET"
+fi
+
+ASSET_PREFIX="https://github.com/brainsparker/superpaste/releases/download/$TAG/"
+"$GENERATE_APPCAST" \
+    --account superpaste \
+    --download-url-prefix "$ASSET_PREFIX" \
+    --release-notes-url-prefix "$ASSET_PREFIX" \
+    --full-release-notes-url "https://github.com/brainsparker/superpaste/releases/latest" \
+    --link "https://superpaste.ai" \
+    "$UPDATES_DIR"
+
+if [ ! -f "$APPCAST" ]; then
+    echo "Sparkle did not generate $APPCAST" >&2
+    exit 1
+fi
+
 echo "==> Publishing GitHub release $TAG"
 cd "$REPO"
+RELEASE_ASSETS=("$DMG" "$APPCAST")
+if [ -f "$NOTES_ASSET" ]; then
+    RELEASE_ASSETS+=("$NOTES_ASSET")
+fi
+
 if gh release view "$TAG" >/dev/null 2>&1; then
-    gh release upload "$TAG" "$DMG" --clobber
+    gh release upload "$TAG" "${RELEASE_ASSETS[@]}" --clobber
     echo "    Updated existing release $TAG"
+elif [ -f "$NOTES_SOURCE" ]; then
+    gh release create "$TAG" "${RELEASE_ASSETS[@]}" \
+        --title "SuperPaste $VERSION" \
+        --notes-file "$NOTES_SOURCE"
 else
-    gh release create "$TAG" "$DMG" \
+    gh release create "$TAG" "${RELEASE_ASSETS[@]}" \
         --title "SuperPaste $VERSION" \
         --notes "Press ⌥V. Text appears.
 
-- Download \`SuperPaste.dmg\`, open it, and drag SuperPaste to Applications.
+- Updates now install securely from inside SuperPaste.
 - Requires macOS 14 (Sonoma) or later.
 - 7-day free trial, no card required. \$5/month after, or compile from source free."
 fi

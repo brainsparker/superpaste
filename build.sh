@@ -6,15 +6,17 @@ SPM="$REPO/SuperPaste"
 APP="$REPO/SuperPaste.app"
 RESET_ONBOARDING=false
 RESET_PERMISSIONS=false
+LAUNCH_APP=true
 
 usage() {
     cat <<EOF
-Usage: ./build.sh [--fresh] [--fresh-permissions]
+Usage: ./build.sh [--fresh] [--fresh-permissions] [--no-launch]
 
 Options:
   --fresh              Reset local onboarding defaults before launching.
   --fresh-permissions  Reset onboarding defaults plus Screen Recording and
                        Accessibility TCC grants before launching.
+  --no-launch          Build, package, and sign without opening the app.
 EOF
 }
 
@@ -27,6 +29,10 @@ while [[ $# -gt 0 ]]; do
         --fresh-permissions)
             RESET_ONBOARDING=true
             RESET_PERMISSIONS=true
+            shift
+            ;;
+        --no-launch)
+            LAUNCH_APP=false
             shift
             ;;
         -h|--help)
@@ -67,6 +73,8 @@ if [ -d "$SPM/.build/release/SuperPaste_SuperPaste.bundle" ]; then
     cp -r "$SPM/.build/release/SuperPaste_SuperPaste.bundle/." "$APP/Contents/Resources/"
 fi
 
+"$REPO/scripts/embed-sparkle.sh" "$SPM" "$APP"
+
 echo "Signing..."
 # Persistent self-signed cert keeps macOS TCC grants (Accessibility, Screen Recording)
 # alive across rebuilds. Ad-hoc signing ties the grant to a cdhash that changes on every
@@ -83,10 +91,12 @@ else
     codesign -s - --force --deep "$APP"
 fi
 
-# Kill any previous instance
-pkill -x SuperPaste 2>/dev/null || true
-sleep 0.5
+if [[ "${LAUNCH_APP}" == true ]]; then
+    # Kill any previous instance
+    pkill -x SuperPaste 2>/dev/null || true
+    sleep 0.5
 
-echo "Launching..."
-open "$APP"
+    echo "Launching..."
+    open "$APP"
+fi
 echo "Done."

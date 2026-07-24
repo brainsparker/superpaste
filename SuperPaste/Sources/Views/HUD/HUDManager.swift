@@ -5,14 +5,12 @@ import Combine
 @MainActor
 final class HUDManager: ObservableObject {
     private var windowController: HUDWindowController?
-    private var glowController: GlowOverlayController?
     private var hudState: HUDState
     private var cancellables = Set<AnyCancellable>()
 
     init(hudState: HUDState) {
         self.hudState = hudState
         self.windowController = HUDWindowController(hudState: hudState)
-        self.glowController = GlowOverlayController(hudState: hudState)
         setupBindings()
     }
 
@@ -23,10 +21,8 @@ final class HUDManager: ObservableObject {
             .sink { [weak self] isVisible in
                 if isVisible {
                     self?.windowController?.show()
-                    self?.glowController?.show()
                 } else {
                     self?.windowController?.hide()
-                    self?.glowController?.hide()
                 }
             }
             .store(in: &cancellables)

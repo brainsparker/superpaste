@@ -14,39 +14,33 @@ struct SettingsPage: View {
     @AppStorage("hotkeyPreset") private var hotkeyPreset: HotkeyPreset = .optionV
     @State private var licenseKeyInput = ""
     @State private var apiKeyInput = ""
+    @State private var isAdvancedExpanded = false
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("Settings")
+                Text("General")
                     .font(.title2.bold())
 
-                // License section
-                licenseSection
-
-                // Bring-your-own-key section
-                apiKeySection
-
-                Divider()
-
-                // About You section
+                // Personalization is the common path. Account and API plumbing
+                // live lower in the hierarchy.
                 aboutYouSection
 
-                Divider()
-
-                // Hotkey section
-                hotkeySection
-
-                // Response behavior
                 responseBehaviorSection
 
-                // HUD Position section
+                hotkeySection
+
                 hudPositionSection
 
                 Divider()
 
-                // Other settings
                 otherSettingsSection
+
+                Divider()
+
+                licenseSection
+
+                advancedSection
             }
             .padding(24)
         }
@@ -57,7 +51,7 @@ struct SettingsPage: View {
 
     private var licenseSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("License")
+            Text("Plan & License")
                 .font(.headline)
 
             if appState.isLicensed {
@@ -199,7 +193,7 @@ struct SettingsPage: View {
 
     private var aboutYouSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("About You")
+            Text("Your Style")
                 .font(.headline)
 
             Text("Help SuperPaste write in your voice.")
@@ -248,7 +242,7 @@ struct SettingsPage: View {
 
     private var hotkeySection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Hotkey")
+            Text("Keyboard Shortcut")
                 .font(.headline)
 
             Picker("Hotkey", selection: $hotkeyPreset) {
@@ -275,7 +269,7 @@ struct SettingsPage: View {
 
     private var responseBehaviorSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Response behavior")
+            Text("Writing Style")
                 .font(.headline)
 
             // Tone picker
@@ -318,12 +312,22 @@ struct SettingsPage: View {
 
     private var hudPositionSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("HUD Position")
+            Text("Status Bubble")
                 .font(.headline)
 
-            Text("Where the progress indicator appears")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            HStack {
+                Text("Where the SuperPaste status bubble appears")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Spacer()
+
+                Button("Preview") {
+                    appState.previewHUD()
+                }
+                .controlSize(.small)
+                .disabled(appState.isProcessing)
+            }
 
             HStack(spacing: 4) {
                 CornerButton(position: .topLeft, selected: hudPosition == .topLeft) {
@@ -348,6 +352,9 @@ struct SettingsPage: View {
 
     private var otherSettingsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
+            Text("App Behavior")
+                .font(.headline)
+
             Toggle("Play sound when ready", isOn: $playSoundOnReady)
 
             Toggle("Launch SuperPaste at login", isOn: $launchAtLogin)
@@ -359,6 +366,26 @@ struct SettingsPage: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
+    }
+
+    private var advancedSection: some View {
+        DisclosureGroup(isExpanded: $isAdvancedExpanded) {
+            apiKeySection
+                .padding(.top, 10)
+        } label: {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Advanced")
+                    .font(.headline)
+                Text("Use your own Anthropic account instead of a SuperPaste plan.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
     }
 }
 

@@ -3,20 +3,20 @@ import SwiftUI
 /// Settings tab identifier
 enum SettingsTab: String, CaseIterable, Identifiable {
     case about = "About"
-    case howItWorks = "How It Works"
+    case quickStart = "Quick Start"
     case permissions = "Permissions"
-    case settings = "Settings"
-    case resources = "Resources"
+    case general = "General"
+    case help = "Help"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
         case .about: return "info.circle"
-        case .howItWorks: return "sparkles"
+        case .quickStart: return "sparkles"
         case .permissions: return "lock.shield"
-        case .settings: return "gear"
-        case .resources: return "arrow.up.right"
+        case .general: return "gear"
+        case .help: return "questionmark.circle"
         }
     }
 }
@@ -24,13 +24,23 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 /// Main settings window container with sidebar navigation
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
+    @ObservedObject private var updateController = UpdateController.shared
     @State private var selectedTab: SettingsTab = .about
 
     var body: some View {
         NavigationSplitView {
             // Sidebar
             List(SettingsTab.allCases, selection: $selectedTab) { tab in
-                Label(tab.rawValue, systemImage: tab.icon)
+                HStack {
+                    Label(tab.rawValue, systemImage: tab.icon)
+                    Spacer()
+                    if tab == .about && updateController.availableUpdate != nil {
+                        Circle()
+                            .fill(.red)
+                            .frame(width: 7, height: 7)
+                            .accessibilityLabel("Update available")
+                    }
+                }
                     .tag(tab)
             }
             .listStyle(.sidebar)
@@ -40,15 +50,15 @@ struct SettingsView: View {
             switch selectedTab {
             case .about:
                 AboutPage()
-            case .howItWorks:
+            case .quickStart:
                 HowItWorksPage()
             case .permissions:
                 PermissionsView()
                     .environmentObject(appState)
-            case .settings:
+            case .general:
                 SettingsPage()
                     .environmentObject(appState)
-            case .resources:
+            case .help:
                 ResourcesPage()
             }
         }

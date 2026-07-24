@@ -6,7 +6,7 @@ struct ResourcesPage: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // Title
-                Text("Resources")
+                Text("Help")
                     .font(.title2.bold())
 
                 // Resource links
@@ -14,22 +14,22 @@ struct ResourcesPage: View {
                     ResourceLink(
                         icon: "book.fill",
                         title: "Documentation",
-                        description: "Learn tips and tricks for SuperPaste",
+                        description: "Learn tips and little tricks",
                         url: "https://superpaste.app/docs"
                     )
 
                     ResourceLink(
                         icon: "bubble.left.fill",
                         title: "Send Feedback",
-                        description: "We'd love to hear from you",
+                        description: "Tell us what would make SuperPaste better",
                         url: "mailto:feedback@superpaste.app"
                     )
 
                     ResourceLink(
                         icon: "ant.fill",
                         title: "Report a Bug",
-                        description: "Help us squash issues",
-                        url: "https://github.com/superpaste/superpaste/issues"
+                        description: "Something feel off? Let us know",
+                        url: "https://github.com/brainsparker/superpaste/issues"
                     )
 
                 }
