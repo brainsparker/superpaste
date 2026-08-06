@@ -99,47 +99,9 @@ final class ScreenCaptureService {
             throw CaptureError.ownWindowOnly
         }
 
-        // Get window info
-        guard let windowList = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else {
-            throw CaptureError.captureFailed
-        }
-
-        // Find the frontmost window from the frontmost app
-        var targetWindowID: CGWindowID?
-        var windowTitle: String?
-        let ownPID = getpid()
-
-        for window in windowList {
-            guard let ownerPID = window[kCGWindowOwnerPID as String] as? Int32,
-                  ownerPID == frontmostPID,
-                  // Never screenshot SuperPaste's own windows (except during
-                  // the onboarding practice moment, which captures itself).
-                  allowOwnWindow || ownerPID != ownPID,
-                  let layer = window[kCGWindowLayer as String] as? Int,
-                  layer == 0 // Normal window layer
-            else { continue }
-
-            // Skip tiny helper windows (tooltips, focus rings, 1px overlays) —
-            // first-match on those captures the wrong surface in Electron apps.
-            if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
-               let w = bounds["Width"], let h = bounds["Height"],
-               w < 64 || h < 64 {
-                continue
-            }
-
-            if let windowID = window[kCGWindowNumber as String] as? CGWindowID {
-                targetWindowID = windowID
-                windowTitle = window[kCGWindowName as String] as? String
-                break
-            }
-        }
-
-        guard let windowID = targetWindowID else {
-            throw CaptureError.noWindow
-        }
+        let target = try findFrontmostWindow(frontmostPID: frontmostPID, allowOwnWindow: allowOwnWindow)
+        let windowID = target.id
+        let windowTitle = target.title
 
         // ScreenCaptureKit is the supported path on macOS 14+; the legacy
         // CGWindowList capture stays as a fallback because SCK can fail
@@ -165,6 +127,79 @@ final class ScreenCaptureService {
             bundleIdentifier: bundleIdentifier,
             windowTitle: windowTitle,
             frontmostPID: frontmostPID
+        )
+    }
+
+    // MARK: - Window lookup
+
+    /// Identify the frontmost app's main window, without capturing pixels.
+    ///
+    /// Shared by `capture` and by `frontmostWindowTarget` so both agree on which
+    /// window counts as "the one the user is looking at" — including the
+    /// tiny-window filter that keeps Electron tooltips from winning.
+    private func findFrontmostWindow(
+        frontmostPID: pid_t?,
+        allowOwnWindow: Bool
+    ) throws -> (id: CGWindowID, title: String?) {
+        guard let windowList = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else {
+            throw CaptureError.captureFailed
+        }
+
+        let ownPID = getpid()
+
+        for window in windowList {
+            guard let ownerPID = window[kCGWindowOwnerPID as String] as? Int32,
+                  ownerPID == frontmostPID,
+                  // Never screenshot SuperPaste's own windows (except during
+                  // the onboarding practice moment, which captures itself).
+                  allowOwnWindow || ownerPID != ownPID,
+                  let layer = window[kCGWindowLayer as String] as? Int,
+                  layer == 0 // Normal window layer
+            else { continue }
+
+            // Skip tiny helper windows (tooltips, focus rings, 1px overlays) —
+            // first-match on those captures the wrong surface in Electron apps.
+            if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+               let w = bounds["Width"], let h = bounds["Height"],
+               w < 64 || h < 64 {
+                continue
+            }
+
+            if let windowID = window[kCGWindowNumber as String] as? CGWindowID {
+                return (windowID, window[kCGWindowName as String] as? String)
+            }
+        }
+
+        throw CaptureError.noWindow
+    }
+
+    /// Where the user is about to paste, described without taking a screenshot.
+    ///
+    /// Magic Copy needs to know which app and which page the user is posting
+    /// into, and nothing else — so it must not capture pixels. Window titles come
+    /// from the same lookup `capture` uses, which needs Screen Recording
+    /// permission; without it the title is simply nil and platform detection
+    /// falls back to neutral copy.
+    struct WindowTarget {
+        let appName: String?
+        let bundleIdentifier: String?
+        let windowTitle: String?
+        let frontmostPID: pid_t?
+    }
+
+    func frontmostWindowTarget() -> WindowTarget {
+        let frontmostApp = NSWorkspace.shared.frontmostApplication
+        let pid = frontmostApp?.processIdentifier
+        // A missing window is not an error here: detection degrades to generic.
+        let window = try? findFrontmostWindow(frontmostPID: pid, allowOwnWindow: false)
+        return WindowTarget(
+            appName: frontmostApp?.localizedName,
+            bundleIdentifier: frontmostApp?.bundleIdentifier,
+            windowTitle: window?.title,
+            frontmostPID: pid
         )
     }
 

@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Share Links — SuperPaste</title>
+  <meta name="description" content="Define the message you want shared. Everyone who opens your link gets their own version of it, written for wherever they're posting." />
+  <meta name="theme-color" content="#000000" />
+  <link rel="canonical" href="https://superpaste.ai/smart-share" />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23000'/%3E%3Ctext x='32' y='42' font-family='-apple-system,sans-serif' font-size='26' font-weight='700' fill='%230071e3' text-anchor='middle'%3E%E2%8C%A5V%3C/text%3E%3C/svg%3E" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #000;
+      --surface: #0a0a0a;
+      --surface-2: #111;
+      --border: rgba(255,255,255,0.08);
+      --text: #f5f5f7;
+      --text-2: rgba(245,245,247,0.6);
+      --text-3: rgba(245,245,247,0.35);
+      --blue: #0071e3;
+      --green: #30d158;
+      --amber: #ff9f0a;
+      --radius: 16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      font-size: 17px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 60px;
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--text); text-decoration: none; }
+    .nav-back { font-size: 14px; color: var(--text-2); text-decoration: none; }
+    .nav-back:hover { color: var(--text); }
+
+    main { max-width: 800px; margin: 0 auto; padding: 110px 24px 100px; }
+
+    .page-label {
+      font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--blue); margin-bottom: 14px;
+    }
+
+    h1 { font-size: clamp(30px, 5vw, 44px); font-weight: 700; letter-spacing: -0.03em; line-height: 1.12; margin-bottom: 18px; }
+    h2 { font-size: 20px; font-weight: 600; letter-spacing: -0.02em; margin: 36px 0 14px; }
+    p { font-size: 16px; color: var(--text-2); margin-bottom: 14px; }
+    strong { color: var(--text); font-weight: 600; }
+    a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+    kbd {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 7px;
+    }
+
+    .lede { font-size: 19px; margin-bottom: 8px; }
+
+    .card {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 22px;
+      margin-bottom: 20px;
+    }
+
+    .field { margin-bottom: 20px; }
+    .field:last-child { margin-bottom: 0; }
+    label { display: block; font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .hint { font-size: 13px; color: var(--text-3); margin-bottom: 8px; }
+    .req { color: var(--blue); font-weight: 500; }
+
+    input[type="text"], input[type="url"], input[type="date"], textarea {
+      width: 100%; font-family: inherit; font-size: 16px; line-height: 1.6;
+      color: var(--text); background: var(--bg);
+      border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px;
+      resize: vertical;
+    }
+    input:focus, textarea:focus { outline: none; border-color: var(--blue); }
+    textarea { min-height: 90px; }
+    input[type="date"] { max-width: 220px; color-scheme: dark; }
+
+    .checks { display: flex; flex-wrap: wrap; gap: 8px; }
+    .check {
+      display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+      padding: 8px 14px; font-size: 15px; border-radius: 999px;
+      background: var(--bg); border: 1px solid var(--border); color: var(--text-2);
+      margin: 0;
+    }
+    .check:hover { color: var(--text); }
+    .check input { accent-color: var(--blue); margin: 0; }
+    .check.on { border-color: var(--blue); color: var(--text); }
+
+    button {
+      appearance: none; cursor: pointer; font-family: inherit;
+      font-size: 15px; font-weight: 600; padding: 12px 22px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    }
+    button:hover:not(:disabled) { border-color: rgba(255,255,255,0.2); }
+    button:disabled { opacity: 0.45; cursor: default; }
+    button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+    button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+
+    .errors { margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
+    .error {
+      font-size: 14px; color: var(--text);
+      background: rgba(255,159,10,0.1); border: 1px solid rgba(255,159,10,0.3);
+      border-radius: 10px; padding: 11px 14px;
+    }
+
+    .status { font-size: 14px; color: var(--text-3); min-height: 20px; }
+    .status.ok { color: var(--green); }
+    .status.err { color: var(--amber); }
+
+    .link-out {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px; line-height: 1.5;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; overflow-wrap: anywhere; color: var(--text);
+      margin-bottom: 14px;
+    }
+
+
+    .notice {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 14px; color: var(--text-2);
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 14px; margin-top: 16px;
+    }
+    .notice-icon { flex-shrink: 0; }
+
+    .hidden { display: none !important; }
+
+    footer { border-top: 1px solid var(--border); padding: 40px; text-align: center; font-size: 13px; color: var(--text-2); }
+    footer a { color: var(--text-2); }
+    footer a:hover { color: var(--text); }
+
+    @media (max-width: 768px) {
+      nav { padding: 0 20px; }
+      main { padding-top: 90px; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a class="nav-logo" href="/">SuperPaste</a>
+    <a class="nav-back" href="/">← superpaste.ai</a>
+  </nav>
+
+  <main>
+    <div class="page-label">Smart Share Links</div>
+    <h1>Share the message, not the copy.</h1>
+    <p class="lede">Write down what you want people to get across. Everyone who opens your link gets their own version of it, written for whichever platform they're posting to.</p>
+    <p>No two people post the same paragraph. The facts, the link, and your guardrails survive every version.</p>
+    <p>Sharers need SuperPaste installed: they copy your link, press <kbd>⌥V</kbd> where they want to post, and the right post appears. Nothing is generated in the browser.</p>
+
+    <form id="form" novalidate>
+      <h2>The campaign</h2>
+      <div class="card">
+        <div class="field">
+          <label for="name">Campaign name <span class="req">required</span></label>
+          <div class="hint">Only shown to people who open your link, so they know what they're helping with.</div>
+          <input type="text" id="name" maxlength="80" autocomplete="off" placeholder="SuperPaste 1.2 launch" />
+        </div>
+
+        <div class="field">
+          <label for="intent">What should people get across? <span class="req">required</span></label>
+          <div class="hint">The message, not the wording. Describe the point you want made.</div>
+          <textarea id="intent" maxlength="600" placeholder="Tell people SuperPaste now works free if you bring your own Anthropic API key, and that it pastes straight into whatever you're typing in."></textarea>
+        </div>
+
+        <div class="field">
+          <label for="url">Link every post must include</label>
+          <div class="hint">http or https only. Included exactly as you type it, with no tracking parameters added.</div>
+          <input type="url" id="url" maxlength="500" autocomplete="off" placeholder="https://superpaste.ai" />
+        </div>
+
+        <div class="field">
+          <label for="facts">Facts that must appear</label>
+          <div class="hint">One per line, up to 8. Every post will carry all of them, in the writer's own words.</div>
+          <textarea id="facts" placeholder="Works on macOS 14 and later&#10;Free with your own Anthropic API key&#10;Open source under MIT"></textarea>
+        </div>
+      </div>
+
+      <h2>Voice and guardrails</h2>
+      <div class="card">
+        <div class="field">
+          <label for="tone">Tone</label>
+          <div class="hint">A few words. Left blank, each post matches the platform it's for.</div>
+          <input type="text" id="tone" maxlength="60" autocomplete="off" placeholder="matter-of-fact, no hype" />
+        </div>
+
+        <div class="field">
+          <label for="hashtags">Hashtags</label>
+          <div class="hint">One per line, up to 6, without the #. Only used on platforms where they read naturally.</div>
+          <textarea id="hashtags" placeholder="macOS&#10;buildinpublic"></textarea>
+        </div>
+
+        <div class="field">
+          <label for="prohibited">Claims and phrases to never use</label>
+          <div class="hint">One per line, up to 10. Drafts are checked against these before you see them.</div>
+          <textarea id="prohibited" placeholder="fastest AI tool ever&#10;replaces your team&#10;guaranteed results"></textarea>
+        </div>
+      </div>
+
+      <h2>Where people can share it</h2>
+      <div class="card">
+        <div class="field">
+          <label>Supported platforms <span class="req">pick at least one</span></label>
+          <div class="hint">Only these appear as options to whoever opens your link.</div>
+          <div class="checks" id="platforms"></div>
+        </div>
+
+        <div class="field">
+          <label for="expires">Expiration date</label>
+          <div class="hint">Optional. After this date the link stops working.</div>
+          <input type="date" id="expires" />
+        </div>
+      </div>
+
+      <div class="actions">
+        <button type="submit" id="create" class="primary">Create share link</button>
+        <span id="status" class="status"></span>
+      </div>
+      <div id="errors" class="errors"></div>
+    </form>
+
+    <div id="result" class="hidden">
+      <h2>Your share link</h2>
+      <div class="card">
+        <p>The whole campaign is encoded inside this link — there's nothing stored on a server. Anyone who has it can read the campaign, so don't put anything private in one.</p>
+        <div class="link-out" id="link"></div>
+        <div class="actions">
+          <button type="button" id="copy-link" class="primary">Copy link</button>
+          <button type="button" id="open-link">Open it yourself</button>
+          <span id="link-status" class="status"></span>
+        </div>
+        <div class="notice">
+          <span class="notice-icon" aria-hidden="true">ⓘ</span>
+          <span>An encoded link can't be edited or revoked once you've sent it. To change the campaign, make a new link.</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="preview-wrap" class="hidden">
+      <h2>See what people will get</h2>
+      <p>Copy the link above, click into a LinkedIn or X post box, and press <kbd>⌥V</kbd>. That is exactly what a sharer sees, generated the same way — the best preview is the real thing.</p>
+      <p>Press it again, or in a different app, and you'll get a different post from the same campaign. That's the point.</p>
+    </div>
+
+  </main>
+
+  <footer>
+    © 2026 SuperPaste &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a>
+  </footer>
+
+  <script>
+  (function () {
+    'use strict';
+
+    // Mirrors SuperPaste/Sources/Utilities/APIConfig.swift.
+    var LOCAL = ['localhost', '127.0.0.1'].indexOf(location.hostname) !== -1;
+    var API = LOCAL
+      ? 'http://localhost:8787/v1/smart-share'
+      : 'https://superpaste-api.brianjsparker.workers.dev/v1/smart-share';
+
+    var el = function (id) { return document.getElementById(id); };
+    var setText = function (node, value) { node.textContent = value == null ? '' : String(value); };
+
+    // Platform list comes from the Worker so labels and limits are never
+    // duplicated here (server/src/smartshare/platforms.ts is the only source).
+    var PLATFORMS = [];
+    var DEFAULT_ON = ['linkedin', 'x', 'bluesky', 'email', 'generic'];
+
+    var state = { campaign: null, token: null, link: null };
+
+    function lines(value, max) {
+      return value
+        .split('\n')
+        .map(function (line) { return line.trim(); })
+        .filter(function (line) { return line.length > 0; })
+        .slice(0, max);
+    }
+
+    function status(node, message, kind) {
+      setText(node, message);
+      node.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    function showErrors(messages) {
+      var host = el('errors');
+      host.textContent = '';
+      (messages || []).forEach(function (message) {
+        var node = document.createElement('div');
+        node.className = 'error';
+        setText(node, message);
+        host.appendChild(node);
+      });
+    }
+
+    function renderPlatformChecks() {
+      var host = el('platforms');
+      host.textContent = '';
+      PLATFORMS.forEach(function (platform) {
+        var label = document.createElement('label');
+        label.className = 'check';
+        var box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = platform.id;
+        box.checked = DEFAULT_ON.indexOf(platform.id) !== -1;
+        if (box.checked) label.classList.add('on');
+        box.addEventListener('change', function () { label.classList.toggle('on', box.checked); });
+        var text = document.createElement('span');
+        setText(text, platform.label);
+        label.appendChild(box);
+        label.appendChild(text);
+        host.appendChild(label);
+      });
+    }
+
+    function selectedPlatforms() {
+      var boxes = el('platforms').querySelectorAll('input[type="checkbox"]');
+      var out = [];
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].checked) out.push(boxes[i].value);
+      }
+      return out;
+    }
+
+    function readForm() {
+      var draft = {
+        name: el('name').value.trim(),
+        intent: el('intent').value.trim(),
+        requiredFacts: lines(el('facts').value, 8),
+        hashtags: lines(el('hashtags').value, 6),
+        prohibitedClaims: lines(el('prohibited').value, 10),
+        supportedPlatforms: selectedPlatforms()
+      };
+
+      var url = el('url').value.trim();
+      if (url) draft.requiredUrl = url;
+
+      var tone = el('tone').value.trim();
+      if (tone) draft.tone = tone;
+
+      var expires = el('expires').value;
+      if (expires) {
+        // End of the chosen day, so a link set to expire "today" works all day.
+        var when = new Date(expires + 'T23:59:59');
+        if (!isNaN(when.getTime())) draft.expiresAt = when.toISOString();
+      }
+
+      return draft;
+    }
+
+    function post(path, body) {
+      return fetch(API + path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function (response) {
+        return response.json().then(
+          function (data) { return { ok: response.ok, status: response.status, data: data }; },
+          function () { return { ok: false, status: response.status, data: {} }; }
+        );
+      });
+    }
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      return new Promise(function (resolve, reject) {
+        try {
+          var scratch = document.createElement('textarea');
+          scratch.value = text;
+          scratch.setAttribute('readonly', '');
+          scratch.style.position = 'fixed';
+          scratch.style.opacity = '0';
+          document.body.appendChild(scratch);
+          scratch.select();
+          var ok = document.execCommand('copy');
+          document.body.removeChild(scratch);
+          ok ? resolve() : reject(new Error('copy failed'));
+        } catch (err) {
+          reject(err);
+        }
+      });
+    }
+
+    // --- Create ------------------------------------------------------------
+
+    el('form').addEventListener('submit', function (event) {
+      event.preventDefault();
+      showErrors([]);
+      status(el('status'), 'Creating your link…');
+      el('create').disabled = true;
+
+      post('/campaigns', readForm()).then(function (result) {
+        el('create').disabled = false;
+
+        if (!result.ok) {
+          var details = (result.data && result.data.details) || [];
+          showErrors(details.length ? details : [(result.data && result.data.message) || 'Could not create the link.']);
+          status(el('status'), '', 'err');
+          return;
+        }
+
+        state.token = result.data.id;
+        state.link = result.data.url;
+        state.campaign = result.data.campaign;
+
+        // Point the link at whatever origin this page is served from, so a
+        // locally served copy produces links that work locally.
+        try {
+          var parsed = new URL(state.link);
+          state.link = location.origin + parsed.pathname + parsed.hash;
+        } catch (err) { /* keep the server's URL */ }
+
+        setText(el('link'), state.link);
+        el('result').classList.remove('hidden');
+        el('preview-wrap').classList.remove('hidden');
+        status(el('status'), 'Link ready.', 'ok');
+        el('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }).catch(function () {
+        el('create').disabled = false;
+        status(el('status'), "Couldn't reach SuperPaste. Check your connection.", 'err');
+      });
+    });
+
+    el('copy-link').addEventListener('click', function () {
+      if (!state.link) return;
+      copyToClipboard(state.link).then(function () {
+        status(el('link-status'), 'Copied.', 'ok');
+      }).catch(function () {
+        status(el('link-status'), 'Copying failed — select the link and copy it manually.', 'err');
+      });
+    });
+
+    el('open-link').addEventListener('click', function () {
+      if (state.link) window.open(state.link, '_blank', 'noopener');
+    });
+
+    // --- Boot --------------------------------------------------------------
+
+    fetch(API + '/platforms')
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        PLATFORMS = data.platforms || [];
+        renderPlatformChecks();
+      })
+      .catch(function () {
+        status(el('status'), "Couldn't load the platform list. Reload the page.", 'err');
+        el('create').disabled = true;
+      });
+  })();
+  </script>
+
+</body>
+</html>

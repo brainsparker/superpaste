@@ -15,6 +15,10 @@ id = "928b1c1767d94ee9881855b2703f0ca8"
 GLOBAL_TRIAL_DAILY_LIMIT = "300"
 GLOBAL_LICENSED_DAILY_LIMIT = "2000"
 
+# Origin that generated Smart Share links point at. Set to
+# http://localhost:8788 when serving website/ locally against `wrangler dev`.
+SMART_SHARE_BASE_URL = "https://superpaste.ai"
+
 # Per-IP burst limits (Cloudflare Rate Limiting API). Stops device-ID rotation
 # and endpoint hammering from a single source. Limits are per `period` seconds.
 [[unsafe.bindings]]

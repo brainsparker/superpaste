@@ -26,6 +26,17 @@ final class LLMService {
         let personal_context: String?
     }
 
+    /// Magic Copy: a Smart Share campaign link plus where the user is posting.
+    /// No screenshot — the campaign supplies the content and the frontmost app
+    /// supplies the destination. The Worker decodes the campaign, picks the
+    /// platform, and owns the prompt.
+    private struct ShareRequest: Encodable {
+        let share_link: String
+        let bundle_id: String?
+        let app_name: String?
+        let window_title: String?
+    }
+
     /// Full Anthropic request, used only in bring-your-own-key mode where the
     /// app talks to api.anthropic.com directly.
     private struct AnthropicRequest: Encodable {
@@ -115,6 +126,10 @@ final class LLMService {
         case unclearContext     // model couldn't infer what to write
         case truncatedResponse  // hit max_tokens; pasting half a sentence helps nobody
         case invalidAPIKey      // BYO-key mode: Anthropic rejected the user's key
+        case campaignExpired    // Magic Copy: the share link's campaign has ended
+        case campaignInvalid    // Magic Copy: the link isn't a usable campaign
+        case campaignBlocked(String) // Magic Copy: draft broke a campaign guardrail
+        case shareUnavailableInBYOKMode // Magic Copy needs the SuperPaste backend
 
         var errorDescription: String? {
             switch self {
@@ -144,6 +159,14 @@ final class LLMService {
                 return "Response was cut off."
             case .invalidAPIKey:
                 return "Anthropic rejected your API key."
+            case .campaignExpired:
+                return "This Smart Share link has expired."
+            case .campaignInvalid:
+                return "This Smart Share link isn't valid."
+            case .campaignBlocked(let reason):
+                return reason
+            case .shareUnavailableInBYOKMode:
+                return "Magic Copy needs the SuperPaste backend."
             }
         }
 
@@ -173,6 +196,14 @@ final class LLMService {
                 return "The response ran too long \u{2014} try again."
             case .invalidAPIKey:
                 return "Your Anthropic API key was rejected \u{2014} check it in Settings."
+            case .campaignExpired:
+                return "This Smart Share link has expired \u{2014} ask whoever sent it for a new one."
+            case .campaignInvalid:
+                return "That Smart Share link isn't valid \u{2014} copy the whole link and try again."
+            case .campaignBlocked(let reason):
+                return reason
+            case .shareUnavailableInBYOKMode:
+                return "Magic Copy needs the SuperPaste backend \u{2014} turn off your own API key in Settings to use it."
             }
         }
     }
@@ -194,6 +225,64 @@ final class LLMService {
             usingDirectMode = false
         }
 
+        return try await send(urlRequest, usingDirectMode: usingDirectMode)
+    }
+
+    /// Magic Copy: write a post for the campaign on the clipboard, aimed at
+    /// whatever app the user is in.
+    ///
+    /// Goes through the SuperPaste backend on the same `/v1/messages` route as a
+    /// normal paste, so it is metered by the same trial and license limits. The
+    /// Worker decodes the campaign, picks the platform from the window metadata,
+    /// and owns the prompt — the app deliberately knows none of that.
+    func processShareCampaign(
+        link: String,
+        target: ScreenCaptureService.WindowTarget
+    ) async throws -> String {
+        // Bring-your-own-key mode talks straight to Anthropic and never reaches
+        // the Worker, so it cannot get the campaign prompt. Fail clearly instead
+        // of quietly pasting something unrelated.
+        guard UserAPIKey.current == nil else {
+            throw LLMError.shareUnavailableInBYOKMode
+        }
+
+        let request = ShareRequest(
+            share_link: link,
+            bundle_id: target.bundleIdentifier,
+            app_name: target.appName,
+            window_title: target.windowTitle?.isEmpty == false ? target.windowTitle : nil
+        )
+
+        guard let url = URL(string: APIConfig.baseURL) else {
+            throw LLMError.invalidResponse
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
+        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
+            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
+        }
+        urlRequest.timeoutInterval = APIConfig.timeoutInterval
+
+        do {
+            urlRequest.httpBody = try JSONEncoder().encode(request)
+        } catch {
+            throw LLMError.invalidResponse
+        }
+
+        return try await send(urlRequest, usingDirectMode: false)
+    }
+
+    // MARK: - Shared transport
+
+    /// Send a prepared request and turn the reply into paste-ready text.
+    ///
+    /// Both the paste path and Magic Copy end up here: the Worker returns the
+    /// same Anthropic-shaped body for either, so response handling, status
+    /// mapping, and the sentinel checks stay in one place.
+    private func send(_ urlRequest: URLRequest, usingDirectMode: Bool) async throws -> String {
         let data: Data
         let response: URLResponse
 
@@ -220,6 +309,20 @@ final class LLMService {
             throw LLMError.trialExpired
         case 403:
             throw LLMError.licenseInvalid
+        case 422:
+            // Magic Copy only: the campaign link is unusable, or the draft broke
+            // one of the campaign's guardrails and must not be pasted.
+            let body = try? JSONDecoder().decode(WorkerErrorResponse.self, from: data)
+            switch body?.error {
+            case "campaign_expired":
+                throw LLMError.campaignExpired
+            case "campaign_blocked":
+                throw LLMError.campaignBlocked(
+                    body?.message ?? "That draft broke one of the campaign's rules \u{2014} nothing was pasted."
+                )
+            default:
+                throw LLMError.campaignInvalid
+            }
         case 429:
             // Distinguish our rate limit (error: "rate_limited") from Anthropic's 429
             if let errorBody = try? JSONDecoder().decode(WorkerErrorResponse.self, from: data),
@@ -365,6 +468,7 @@ final class LLMService {
 
     private struct WorkerErrorResponse: Decodable {
         let error: String?
+        let message: String?
     }
 
     private func buildTextPrompt(context: ScreenCaptureService.CapturedContext) -> String {
