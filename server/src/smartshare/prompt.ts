@@ -67,6 +67,15 @@ export interface BuildPromptOptions {
   seed: number;
   /** Earlier drafts to steer away from, so regeneration actually differs. */
   previousDrafts?: string[];
+  /**
+   * Suppress the subject line even on platforms that normally get one.
+   *
+   * Magic Copy pastes straight at the cursor and cannot know whether that
+   * cursor is in an email's subject field or its body, so a stray "Subject:"
+   * line would land in the wrong place. Asking for body-only text avoids
+   * generating something we would have to throw away.
+   */
+  omitSubject?: boolean;
 }
 
 export interface BuiltPrompt {
@@ -78,14 +87,14 @@ export interface BuiltPrompt {
 const MAX_PREVIOUS_DRAFTS = 3;
 const PREVIOUS_DRAFT_EXCERPT = 140;
 
-function buildSystemPrompt(platform: SmartSharePlatform): string {
+function buildSystemPrompt(platform: SmartSharePlatform, omitSubject: boolean): string {
   const config = platformConfig(platform);
 
   const lengthRule = config.maxChars
     ? `Aim for about ${config.targetChars} characters. Never exceed ${config.maxChars} characters — ${config.label} rejects anything longer.`
     : `Aim for about ${config.targetChars} characters. Being shorter than that is fine; padding is not.`;
 
-  const subjectRule = config.hasSubject
+  const subjectRule = config.hasSubject && !omitSubject
     ? `Start your output with a single line "Subject: <subject>", then one blank line, then the body. The subject is a real subject line, not a label.`
     : `Output the post body only. No subject line, no title, no headline label.`;
 
@@ -175,7 +184,7 @@ function buildUserPrompt(options: BuildPromptOptions, angle: ShareAngle): string
 export function buildSmartSharePrompt(options: BuildPromptOptions): BuiltPrompt {
   const angle = pickAngle(options.seed);
   return {
-    system: buildSystemPrompt(options.platform),
+    system: buildSystemPrompt(options.platform, options.omitSubject ?? false),
     user: buildUserPrompt(options, angle),
     angle,
   };
@@ -266,4 +275,59 @@ export function validateGeneratedCopy(
   // coverage is enforced by the prompt and by the user reviewing the draft.
 
   return { text, subject, warnings };
+}
+
+export interface FinalizedCopy {
+  /** Text ready to paste. */
+  text: string;
+  /**
+   * Set when the draft broke a guardrail that must not reach a composer.
+   * The caller should refuse rather than paste it.
+   */
+  blocked: string | null;
+}
+
+/**
+ * Turn a raw model response into text safe to paste unattended.
+ *
+ * The web flow could show warnings and let the user decide. Magic Copy pastes
+ * straight at the cursor, so a warning nobody reads is worthless — each
+ * guardrail has to become either a deterministic fix or a refusal:
+ *
+ * - Missing required URL → appended. Deterministic and always correct, so this
+ *   never costs a second model call.
+ * - Prohibited claim present → blocked. These are the author's compliance line;
+ *   quietly pasting a violation into someone's LinkedIn box is the worst
+ *   outcome available, worse than pasting nothing.
+ * - Over a platform's hard limit → left alone. The user can see the length in
+ *   the composer, and the platform itself will refuse to post it.
+ */
+export function finalizeShareCopy(
+  raw: string,
+  campaign: SmartShareCampaign,
+  platform: SmartSharePlatform,
+): FinalizedCopy {
+  const { text } = splitGeneratedCopy(raw, platform);
+  let finalText = text.trim();
+
+  if (finalText.length === 0) {
+    return { text: "", blocked: "The writer returned an empty post." };
+  }
+
+  const haystack = finalText.toLowerCase();
+  for (const claim of campaign.prohibitedClaims ?? []) {
+    const needle = claim.toLowerCase().trim();
+    if (needle.length >= 4 && haystack.includes(needle)) {
+      return {
+        text: finalText,
+        blocked: `This draft used a phrase the campaign prohibits ("${claim}"). Nothing was pasted.`,
+      };
+    }
+  }
+
+  if (campaign.requiredUrl && !finalText.includes(campaign.requiredUrl)) {
+    finalText = `${finalText}\n\n${campaign.requiredUrl}`;
+  }
+
+  return { text: finalText, blocked: null };
 }

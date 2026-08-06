@@ -312,6 +312,14 @@ final class AppState: ObservableObject {
         isProcessing = true
         lastError = nil
 
+        // Magic Copy: a Smart Share campaign link on the clipboard means the
+        // user wants a post written for wherever they are, not a reading of the
+        // window. Checked first because it needs no screenshot at all.
+        if let campaignLink = SmartShareLink.inClipboard(clipboardService) {
+            await processMagicCopy(generation: generation, link: campaignLink)
+            return
+        }
+
         hudState.startGathering()
 
         try? await Task.sleep(for: .milliseconds(100))
@@ -392,6 +400,88 @@ final class AppState: ObservableObject {
 
             // Give the target app time to service the paste, then hand the
             // clipboard back — a paste tool must not eat what the user copied.
+            restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: ourChangeCount)
+
+        } catch LLMService.LLMError.trialExpired {
+            guard isCurrent(generation) else { return }
+            UserDefaults.standard.set(true, forKey: "trialExpiredLocally")
+            updateMainWindowState()
+            hudState.showError("Trial ended \u{2014} subscribe or add your own API key in Settings")
+
+        } catch let error as LLMService.LLMError {
+            guard isCurrent(generation) else { return }
+            lastError = error.errorDescription
+            hudState.showError(error.userFriendlyMessage)
+
+        } catch {
+            guard isCurrent(generation) else { return }
+            lastError = error.localizedDescription
+            hudState.showError(error.localizedDescription)
+        }
+
+        finishPipeline(generation)
+    }
+
+    // MARK: - Magic Copy
+
+    /// Write a share post for the campaign link on the clipboard and paste it.
+    ///
+    /// Takes no screenshot: the campaign supplies the content and the frontmost
+    /// app supplies the destination, so there is nothing to read off the screen.
+    /// That makes it faster than a normal paste and means nothing about the
+    /// user's screen leaves the machine.
+    private func processMagicCopy(generation: Int, link: String) async {
+        // Still refuse secure input. Nothing is captured here, but pasting into
+        // a focused password field would be its own kind of wrong.
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        if case .secureInputActive = SensitiveContextGuard.check(
+            bundleIdentifier: frontApp?.bundleIdentifier,
+            appName: frontApp?.localizedName
+        ) {
+            failPipeline(generation, message: "A password field is focused \u{2014} SuperPaste won't paste there.")
+            return
+        }
+
+        let target = screenCaptureService.frontmostWindowTarget()
+        hudState.startWritingShare()
+
+        do {
+            let response = try await llmService.processShareCampaign(link: link, target: target)
+            guard isCurrent(generation) else { return }
+
+            lastResponse = response
+
+            // If the user switched apps mid-request, a synthetic ⌘V would land
+            // the post in whatever is focused now. Copy instead of pasting.
+            let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
+            if let capturedPID = target.frontmostPID, currentPID != capturedPID {
+                clipboardService.write(response)
+                useCount += 1
+                hudState.showError("Focus changed \u{2014} post copied. Press \u{2318}V to paste it.")
+                finishPipeline(generation)
+                return
+            }
+
+            let previousClipboard = clipboardService.snapshotItems()
+            clipboardService.write(response)
+            let ourChangeCount = clipboardService.changeCount
+
+            try? await Task.sleep(for: .milliseconds(50))
+            guard isCurrent(generation) else {
+                if clipboardService.changeCount == ourChangeCount {
+                    clipboardService.restore(previousClipboard)
+                }
+                return
+            }
+            simulatePaste()
+
+            useCount += 1
+            hudState.showReady()
+
+            // Restoring hands the campaign link back to the clipboard, which is
+            // exactly what makes the next press work: the user can move to
+            // another app, press the hotkey again, and get a different post for
+            // that platform without re-copying anything.
             restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: ourChangeCount)
 
         } catch LLMService.LLMError.trialExpired {

@@ -100,11 +100,23 @@ The reset command is also available directly:
 
 **Share the message, not the copy.**
 
-A Smart Share Link lets you define what you want people to get across without writing the post for them. You describe the message, the facts that must survive, the link, and what nobody should claim. Everyone who opens your link picks where they're posting and gets their own version written for that platform.
+A Smart Share Link lets you define what you want people to get across without writing the post for them. You describe the message, the facts that must survive, the link, and what nobody should claim. Everyone who shares it gets their own version, written for wherever they're posting.
 
 Nobody ends up posting the same paragraph as everyone else, and the facts, the link, and your guardrails survive every version.
 
-This is separate from the Option+V paste flow — it's a web feature, and the macOS app is not involved.
+### Magic Copy — how sharing actually works
+
+There is no web app to sign into and no platform picker. Sharing a campaign is the same hotkey you already use:
+
+1. **Copy the campaign link.** That's the whole setup — the campaign travels inside the link.
+2. **Click into the box you'd post in** — LinkedIn, X, Threads, Bluesky, Facebook, Reddit, Slack, an email.
+3. **Press ⌥V.** SuperPaste notices the campaign link on your clipboard, works out which platform you're in from the frontmost app and window title, writes a post for it, and types it in place.
+
+Press ⌥V again somewhere else and you get a different post, tuned to that platform. The clipboard is handed back afterwards, so the campaign link is still there for the next one.
+
+Magic Copy takes **no screenshot**. The campaign supplies the content and the frontmost app supplies the destination, so there is nothing to read off your screen — which also makes it faster than a normal paste.
+
+An ordinary URL on the clipboard changes nothing. Detection matches only SuperPaste's own `/share#c=…` links, so the primary flow behaves exactly as before.
 
 ### Creating a campaign
 
@@ -118,17 +130,23 @@ Go to [superpaste.ai/smart-share](https://superpaste.ai/smart-share) and fill in
 | Required facts | no | Up to 8; every post carries all of them |
 | Hashtags | no | Up to 6; only used where they read naturally |
 | Tone | no | A few words |
-| Prohibited claims | no | Up to 10; drafts are checked against these |
-| Supported platforms | yes | Only these are offered to sharers |
+| Prohibited claims | no | Up to 10; a draft that uses one is refused, not pasted |
+| Supported platforms | yes | Only these are targeted |
 | Expiration date | no | After it, the link stops working |
 
-You get a link, plus a LinkedIn and X preview so you can see what people will actually receive.
+You get a link to send out. To preview it, copy it and press ⌥V in a LinkedIn or X box yourself — that is exactly what a sharer gets, through the same code path.
 
-### Opening a campaign
+The `/share` page a recipient lands on doesn't generate anything. It shows the campaign, spells out the three steps, and offers the download if they don't have SuperPaste yet.
 
-The link goes to `/share`. The page shows the campaign name, exactly which parts came from the campaign author, and a platform picker: LinkedIn, X, Threads, Bluesky, Facebook, Reddit, Slack, Email, or generic. Pick one and you get a post you can copy, edit, or regenerate for something different. Where a platform has a share URL that genuinely prefills text, there's a button to open it.
+### Why generation lives in the app
 
-**SuperPaste never posts anything for you.** Every draft is reviewed by the person sharing it before it goes anywhere.
+Campaign generation happens **only** through `POST /v1/messages`, behind the device-id and trial/license gate the paste product already has. Magic Copy costs a user's daily quota exactly like any other paste.
+
+An earlier draft of this feature exposed an anonymous `/v1/smart-share/generate` so a browser could generate. That was an open inference faucet: campaign creation is unauthenticated and `intent` is free text, so anyone could mint a campaign and generate against it without ever holding a license. Rate limits only slow that down. Moving generation into the app closes it, and needs no accounts, no sessions, and no new identity system.
+
+The three remaining `/v1/smart-share/*` routes — `platforms`, `campaigns`, `resolve` — never call a model. They validate a draft, encode a link, and decode one for display.
+
+**Known gap:** Magic Copy needs the SuperPaste backend, so it does not work in bring-your-own-key mode, where the app talks to Anthropic directly and never reaches the Worker. Pressing ⌥V on a campaign link in that mode says so rather than pasting something unrelated. Supporting it cleanly means a route that returns the built prompt (no model call, so no cost) which the app then sends to Anthropic itself — that keeps one definition of the prompt instead of a second copy in Swift.
 
 ### Where the campaign lives
 
@@ -143,24 +161,27 @@ Storage sits behind `SmartShareCampaignProvider` (`server/src/smartshare/provide
 
 ### Layout
 
-Everything lives in the Worker plus two static pages. The macOS app is untouched.
-
 ```
 server/src/smartshare/
   schema.ts      types, validation, field limits, URL + expiry checks
   codec.ts       campaign <-> link token, fragment-based link building
   platforms.ts   per-platform voice, length, and share-URL config
-  prompt.ts      prompt construction and post-generation guardrail checks
-  generate.ts    the only place that calls a model
+  detect.ts      frontmost app + window title -> destination platform
+  prompt.ts      prompt construction and guardrail enforcement
   provider.ts    storage interface + the local encoded-link provider
   analytics.ts   interface + no-op only (see below)
-  routes.ts      HTTP surface, CORS, rate limits, daily cost ceiling
+  routes.ts      the three non-generating HTTP routes
+server/src/index.ts          Magic Copy rides /v1/messages
+SuperPaste/Sources/
+  Utilities/SmartShareLink.swift   spots a campaign link on the clipboard
+  Services/LLMService.swift        processShareCampaign
+  Models/AppState.swift            the Magic Copy branch of the pipeline
 website/
-  smart-share.html   campaign creation + LinkedIn/X preview
-  share.html         the page a sharer opens
+  smart-share.html   campaign creation
+  share.html         what a recipient lands on
 ```
 
-Platform rules live only in `platforms.ts`; the UI reads them over HTTP from `GET /v1/smart-share/platforms` so nothing is duplicated in page code. Adding a platform means one entry there plus one union member in `schema.ts`.
+Platform voice, length limits, and platform **detection** all live server-side. Window titles change whenever a social network reskins, so a detection fix ships without an app release — the same reason the paste prompt lives in the Worker. Adding a platform means one entry in `platforms.ts` plus one union member in `schema.ts`.
 
 ### Treating campaign links as hostile
 
@@ -169,11 +190,12 @@ A campaign arrives from a URL a stranger can hand-edit, so:
 - Every field is schema-validated with a hard length cap; control characters and bidi overrides are stripped.
 - URLs must be `http`/`https` with no embedded credentials — `javascript:` and `data:` are rejected at the schema boundary, not at render time.
 - Oversized payloads are rejected before being parsed, and unknown/newer schema versions are refused rather than half-understood.
-- **Campaign text never enters the system prompt.** It goes in the user message, JSON-encoded, inside a block whose delimiter carries a nonce the campaign author cannot predict. There's a test asserting no campaign text reaches the system prompt on any platform.
-- The share page renders every campaign-supplied value through `textContent`, never `innerHTML`, and labels which content came from the campaign.
-- Generated copy is checked for the required link, prohibited phrases, and platform length limits; anything that fails is shown to the user as a warning rather than quietly returned.
-
-`/v1/smart-share/generate` is necessarily unauthenticated, so it carries a per-IP burst limiter, a global daily ceiling with **its own** KV counter (Smart Share traffic can never eat the paste product's trial or licensed capacity), and hard request-size caps.
+- An invalid or expired link is refused **before** the quota gate, so a dead link costs nothing.
+- **Campaign text never enters the system prompt.** It goes in the user message, JSON-encoded, inside a block whose delimiter carries a nonce the campaign author cannot predict. There are tests asserting no campaign text reaches the system prompt on any platform.
+- Because Magic Copy pastes with no review screen, guardrails are **enforced** rather than reported: a missing required URL is appended, and a draft that uses a prohibited claim is refused outright rather than typed into someone's composer.
+- Upstream errors on the share path are never forwarded, since an error body could echo a third party's campaign text back to the sharer.
+- The `/share` page renders campaign values through `textContent`, never `innerHTML`, and labels which content came from the campaign.
+- Nothing is ever auto-posted. The text lands in the composer and stops there.
 
 ### Analytics
 
@@ -188,7 +210,7 @@ npm test        # node:test, no test framework dependency
 npm run typecheck
 ```
 
-Tests cover schema validation, link parsing, prompt construction, and the full create → resolve → generate route path with a stubbed model. `npm test` runs the TypeScript sources directly — Node 22 strips types natively, so there's no build step and no test runner to install.
+Tests cover schema validation, link parsing, prompt construction, platform config, platform detection, and the full Magic Copy path through `/v1/messages` with a stubbed model — including that it consumes the same quota and is refused by the same trial and rate limits as a normal paste. `npm test` runs the TypeScript sources directly, so there's no build step and no test runner to install.
 
 ## Privacy
 
@@ -206,7 +228,7 @@ Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https:/
 - **Cloudflare Worker** backend proxy for model requests
 - **CGEvent** tap for the hotkey, **NSPasteboard** + synthesized `⌘V` for the paste
 - **Sparkle 2** for signed, automatic in-app updates
-- **Smart Share Links** as a self-contained Worker module plus two static pages, with no coupling to the paste path
+- **Smart Share Links / Magic Copy** — a Worker module plus two static pages; campaign generation rides the existing `/v1/messages` route so it reuses the trial and license gate
 
 ## Contributing
 

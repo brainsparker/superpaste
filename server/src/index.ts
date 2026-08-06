@@ -14,7 +14,12 @@
  * KV: SUPERPASTE_KV (create with `wrangler kv namespace create SUPERPASTE_KV`)
  */
 
+import { extractTokenFromLink } from "./smartshare/codec.ts";
+import { detectPlatform, resolveTargetPlatform } from "./smartshare/detect.ts";
+import { buildSmartSharePrompt, finalizeShareCopy } from "./smartshare/prompt.ts";
+import { EncodedLinkCampaignProvider } from "./smartshare/provider.ts";
 import { handleSmartShareRequest, type SmartShareEnv } from "./smartshare/routes.ts";
+import { SmartShareError, type SmartShareCampaign, type SmartSharePlatform } from "./smartshare/schema.ts";
 
 interface RateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>;
@@ -44,6 +49,8 @@ const ANTHROPIC_TIMEOUT_MS = 60_000;
 
 const MODEL = "claude-sonnet-5";
 const MAX_TOKENS = 2048;
+/** A social post is short; a tighter ceiling bounds Magic Copy's cost. */
+const SHARE_MAX_TOKENS = 1024;
 
 const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const TRIAL_DAILY_LIMIT = 15;
@@ -84,6 +91,27 @@ interface PasteRequest {
   length?: string;
   personal_context?: string;
 }
+
+/**
+ * Magic Copy: the user has a Smart Share campaign link on the clipboard and
+ * pressed the hotkey in a composer. No screenshot is involved — the campaign
+ * supplies the content and the frontmost app supplies the destination — so this
+ * is a separate request shape rather than a variant of PasteRequest.
+ *
+ * It rides the same `/v1/messages` route on purpose: trial enforcement, license
+ * validation, per-IP limits, daily caps, and usage counters then apply
+ * unchanged, and Magic Copy costs the user quota exactly like a normal paste.
+ * That is also what keeps campaign generation from being an open, anonymous
+ * endpoint anyone could mine for free inference.
+ */
+interface ShareRequest {
+  share_link: string;
+  bundle_id?: string;
+  app_name?: string;
+  window_title?: string;
+}
+
+const MAX_SHARE_LINK_CHARS = 8192;
 
 // --- Helper: JSON response ---
 function json(body: unknown, status = 200): Response {
@@ -184,6 +212,31 @@ function convertLegacyRequest(b: Record<string, unknown>): PasteRequest | null {
 }
 
 // --- Request validation ---
+
+/** Validate a Magic Copy request. Field caps mirror the paste request's. */
+function validateShareRequest(b: Record<string, unknown>): { ok: true; req: ShareRequest } | { ok: false; error: string } {
+  if (typeof b.share_link !== "string") {
+    return { ok: false, error: "share_link must be a string" };
+  }
+  if (b.share_link.length === 0 || b.share_link.length > MAX_SHARE_LINK_CHARS) {
+    return { ok: false, error: "share_link is empty or too long" };
+  }
+  for (const field of ["bundle_id", "app_name", "window_title"]) {
+    if (b[field] !== undefined && typeof b[field] !== "string") {
+      return { ok: false, error: `${field} must be a string` };
+    }
+  }
+  return {
+    ok: true,
+    req: {
+      share_link: b.share_link,
+      bundle_id: (b.bundle_id as string | undefined)?.slice(0, MAX_TEXT_FIELD_CHARS),
+      app_name: (b.app_name as string | undefined)?.slice(0, MAX_TEXT_FIELD_CHARS),
+      window_title: (b.window_title as string | undefined)?.slice(0, MAX_TEXT_FIELD_CHARS),
+    },
+  };
+}
+
 function validatePasteRequest(body: unknown): { ok: true; req: PasteRequest } | { ok: false; error: string } {
   if (typeof body !== "object" || body === null) return { ok: false, error: "body must be a JSON object" };
   const b = body as Record<string, unknown>;
@@ -314,7 +367,7 @@ export default {
     // Self-contained feature module with its own limiter, its own daily cap, and
     // its own prompts. Returns null for anything that isn't a Smart Share path,
     // so the paste routes below are unaffected.
-    const smartShareResponse = await handleSmartShareRequest(request, env, ctx);
+    const smartShareResponse = await handleSmartShareRequest(request, env);
     if (smartShareResponse) return smartShareResponse;
 
     // --- Route: POST /v1/validate-license ---
@@ -361,11 +414,58 @@ export default {
     } catch {
       return json({ error: "bad_request", message: "Body must be JSON." }, 400);
     }
-    const validated = validatePasteRequest(rawBody);
-    if (!validated.ok) {
-      return json({ error: "bad_request", message: validated.error }, 400);
+    // Magic Copy and normal paste share this route so they share the trial,
+    // license, and quota machinery below. They differ only in what they send
+    // (a campaign link vs a screenshot) and how the model call is built.
+    const isShareRequest =
+      typeof rawBody === "object" &&
+      rawBody !== null &&
+      typeof (rawBody as Record<string, unknown>).share_link === "string";
+
+    let pasteReq: PasteRequest | null = null;
+    let shareReq: ShareRequest | null = null;
+    let shareCampaign: SmartShareCampaign | null = null;
+    let sharePlatform: SmartSharePlatform | null = null;
+
+    if (isShareRequest) {
+      const validatedShare = validateShareRequest(rawBody as Record<string, unknown>);
+      if (!validatedShare.ok) {
+        return json({ error: "bad_request", message: validatedShare.error }, 400);
+      }
+      shareReq = validatedShare.req;
+
+      // Resolve the campaign BEFORE the quota gate: a dead link should cost the
+      // user nothing, and decoding is pure CPU.
+      const token = extractTokenFromLink(shareReq.share_link);
+      if (!token) {
+        return json(
+          { error: "campaign_invalid", message: "That doesn't look like a Smart Share link." },
+          422,
+        );
+      }
+      try {
+        shareCampaign = await new EncodedLinkCampaignProvider().getCampaign(token);
+      } catch (err) {
+        if (err instanceof SmartShareError) {
+          const code = err.code === "campaign_expired" ? "campaign_expired" : "campaign_invalid";
+          return json({ error: code, message: err.message }, 422);
+        }
+        throw err;
+      }
+
+      const detected = detectPlatform({
+        bundleId: shareReq.bundle_id,
+        appName: shareReq.app_name,
+        windowTitle: shareReq.window_title,
+      });
+      sharePlatform = resolveTargetPlatform(shareCampaign, detected.platform).platform;
+    } else {
+      const validated = validatePasteRequest(rawBody);
+      if (!validated.ok) {
+        return json({ error: "bad_request", message: validated.error }, 400);
+      }
+      pasteReq = validated.req;
     }
-    const pasteReq = validated.req;
 
     // Gate: license key or trial. Global caps sit BEHIND auth and are split by
     // tier so unauthenticated floods (or trial abuse) can't starve paying users.
@@ -404,40 +504,9 @@ export default {
     }
 
     // Build the Anthropic request server-side.
-    const anthropicBody = {
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: buildSystemPrompt(pasteReq),
-      // Low-latency, no-thinking profile — the product is a hotkey, not a chat.
-      thinking: { type: "disabled" },
-      output_config: { effort: "low" },
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "image",
-              source: {
-                type: "base64",
-                media_type: pasteReq.image.media_type,
-                data: pasteReq.image.data,
-              },
-            },
-            {
-              type: "text",
-              text: [
-                pasteReq.app_name ? `Application: ${pasteReq.app_name}` : null,
-                pasteReq.window_title ? `Window: ${pasteReq.window_title}` : null,
-                "",
-                "Generate the appropriate response based on what you see.",
-              ]
-                .filter((line) => line !== null)
-                .join("\n"),
-            },
-          ],
-        },
-      ],
-    };
+    const anthropicBody = shareCampaign && sharePlatform
+      ? buildShareAnthropicBody(shareCampaign, sharePlatform)
+      : buildPasteAnthropicBody(pasteReq!);
 
     let anthropicResponse: Response;
     try {
@@ -463,9 +532,127 @@ export default {
     ctx.waitUntil(Promise.all([bumpCounter(deviceUsageKey, env), bumpCounter(globalUsageKey, env)]));
 
     const responseBody = await anthropicResponse.text();
+
+    if (shareCampaign && sharePlatform) {
+      // The paste path forwards Anthropic's error body as-is. Magic Copy must
+      // not: a campaign comes from a third party, and an upstream error can echo
+      // request content, so forwarding it would hand campaign text to the
+      // sharer. Report a clean failure instead.
+      if (!anthropicResponse.ok) {
+        console.error(`Magic Copy upstream status ${anthropicResponse.status}`);
+        return json(
+          { error: "upstream_error", message: "Couldn't write the post. Try again." },
+          502,
+        );
+      }
+
+      // Magic Copy pastes without a review screen, so campaign guardrails are
+      // enforced here rather than reported. The response is rebuilt in
+      // Anthropic's shape so the client parses it exactly as a normal paste.
+      const finalized = finalizeShareResponse(responseBody, shareCampaign, sharePlatform);
+      if (finalized) return finalized;
+    }
+
     return new Response(responseBody, {
       status: anthropicResponse.status,
       headers: { "Content-Type": "application/json" },
     });
   },
 };
+
+/**
+ * Apply campaign guardrails to a raw Anthropic response.
+ *
+ * Returns null when the body could not be understood, so the caller falls back
+ * to passing the upstream response through untouched.
+ */
+function finalizeShareResponse(
+  responseBody: string,
+  campaign: SmartShareCampaign,
+  platform: SmartSharePlatform,
+): Response | null {
+  let parsed: { content?: Array<{ type: string; text?: string }>; stop_reason?: string };
+  try {
+    parsed = JSON.parse(responseBody);
+  } catch {
+    return null;
+  }
+
+  const raw = parsed.content?.find((part) => part.type === "text")?.text;
+  if (typeof raw !== "string") return null;
+
+  const finalized = finalizeShareCopy(raw, campaign, platform);
+  if (finalized.blocked) {
+    return json({ error: "campaign_blocked", message: finalized.blocked }, 422);
+  }
+
+  return json({
+    ...parsed,
+    content: [{ type: "text", text: finalized.text }],
+  });
+}
+
+/**
+ * Magic Copy's model call. Reuses the Smart Share prompt builder, so campaign
+ * guardrails and platform voice are identical to the ones the web flow used —
+ * there is one definition of how a share post gets written.
+ */
+function buildShareAnthropicBody(campaign: SmartShareCampaign, platform: SmartSharePlatform) {
+  // Fresh seed per press, so pressing the hotkey again in another app (or the
+  // same one) produces a genuinely different post rather than the same text.
+  const prompt = buildSmartSharePrompt({
+    campaign,
+    platform,
+    seed: Math.floor(Math.random() * 1_000_000),
+    // The cursor could be in a subject field or a body; we cannot tell.
+    omitSubject: true,
+  });
+
+  return {
+    model: MODEL,
+    max_tokens: SHARE_MAX_TOKENS,
+    system: prompt.system,
+    thinking: { type: "disabled" },
+    output_config: { effort: "low" },
+    // Non-zero temperature is what stops every sharer getting the same post.
+    temperature: 1,
+    messages: [{ role: "user", content: prompt.user }],
+  };
+}
+
+function buildPasteAnthropicBody(pasteReq: PasteRequest) {
+  return {
+    model: MODEL,
+    max_tokens: MAX_TOKENS,
+    system: buildSystemPrompt(pasteReq),
+    // Low-latency, no-thinking profile — the product is a hotkey, not a chat.
+    thinking: { type: "disabled" },
+    output_config: { effort: "low" },
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: pasteReq.image.media_type,
+              data: pasteReq.image.data,
+            },
+          },
+          {
+            type: "text",
+            text: [
+              pasteReq.app_name ? `Application: ${pasteReq.app_name}` : null,
+              pasteReq.window_title ? `Window: ${pasteReq.window_title}` : null,
+              "",
+              "Generate the appropriate response based on what you see.",
+            ]
+              .filter((line) => line !== null)
+              .join("\n"),
+          },
+        ],
+      },
+    ],
+  };
+}

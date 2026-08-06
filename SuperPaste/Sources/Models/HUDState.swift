@@ -97,6 +97,19 @@ final class HUDState: ObservableObject {
         }
     }
 
+    /// Magic Copy's working state. Named differently from `startThinking` because
+    /// "Writing your reply…" would be a lie: nothing is being replied to, and the
+    /// user needs to understand the hotkey did something other than usual.
+    func startWritingShare() {
+        cancelTasks()
+        isVisible = true
+        stage = .thinking
+        currentPhrase = "Writing your post…"
+        secondaryPhrase = "From the link you copied."
+        recoveryAction = nil
+        announce("SuperPaste is writing your post")
+    }
+
     func showReady() {
         cancelTasks()
         stage = .ready

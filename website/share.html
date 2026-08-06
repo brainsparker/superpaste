@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Share this — SuperPaste</title>
-  <meta name="description" content="Get a version of this message written for wherever you're posting it." />
+  <meta name="description" content="Copy this link, then press Option V wherever you're posting. SuperPaste writes the post for that platform." />
   <!-- Content comes from a user-supplied link, so this page stays out of search results. -->
   <meta name="robots" content="noindex, nofollow" />
   <meta name="referrer" content="no-referrer" />
@@ -23,7 +23,6 @@
       --text-3: rgba(245,245,247,0.35);
       --blue: #0071e3;
       --green: #30d158;
-      --amber: #ff9f0a;
       --radius: 16px;
     }
 
@@ -55,7 +54,7 @@
     .nav-back { font-size: 14px; color: var(--text-2); text-decoration: none; }
     .nav-back:hover { color: var(--text); }
 
-    main { max-width: 760px; margin: 0 auto; padding: 110px 24px 100px; }
+    main { max-width: 720px; margin: 0 auto; padding: 110px 24px 100px; }
 
     .page-label {
       font-size: 13px; font-weight: 500; letter-spacing: 0.08em;
@@ -67,6 +66,12 @@
     p { font-size: 16px; color: var(--text-2); margin-bottom: 14px; }
     strong { color: var(--text); font-weight: 600; }
     a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
+    kbd {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 7px;
+    }
 
     .card {
       background: var(--surface-2);
@@ -92,39 +97,41 @@
     .field-value ul { margin: 0; padding-left: 20px; }
     .field-value li { font-size: 15px; }
 
-    .platforms { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
-    .chip {
-      appearance: none; cursor: pointer;
-      padding: 8px 16px; font-size: 15px; font-weight: 500;
-      font-family: inherit; color: var(--text-2);
-      background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px;
+    .steps { display: flex; flex-direction: column; gap: 14px; margin: 18px 0 4px; }
+    .step { display: flex; gap: 14px; align-items: flex-start; }
+    .step-num {
+      flex-shrink: 0; width: 26px; height: 26px; border-radius: 50%;
+      background: var(--blue); color: #fff; font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; margin-top: 2px;
     }
-    .chip:hover { color: var(--text); }
-    .chip[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+    .step p { margin: 0; }
 
-    textarea, input[type="text"] {
-      width: 100%; font-family: inherit; font-size: 16px; line-height: 1.6;
-      color: var(--text); background: var(--bg);
-      border: 1px solid var(--border); border-radius: 10px; padding: 14px;
-      resize: vertical;
+    .platform-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .pill {
+      font-size: 14px; color: var(--text-2);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 999px; padding: 5px 13px;
     }
-    textarea:focus, input[type="text"]:focus { outline: none; border-color: var(--blue); }
-    textarea { min-height: 220px; }
 
-    .editor-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
-    .counter { font-size: 13px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-    .counter.over { color: var(--amber); }
-
-    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
     button {
       appearance: none; cursor: pointer; font-family: inherit;
-      font-size: 15px; font-weight: 600; padding: 11px 20px; border-radius: 10px;
+      font-size: 15px; font-weight: 600; padding: 12px 22px; border-radius: 10px;
       border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
     }
     button:hover:not(:disabled) { border-color: rgba(255,255,255,0.2); }
-    button:disabled { opacity: 0.45; cursor: default; }
     button.primary { background: var(--blue); border-color: var(--blue); color: #fff; }
-    button.primary:hover:not(:disabled) { filter: brightness(1.1); }
+    button.primary:hover { filter: brightness(1.1); }
+
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 18px; }
+    .cta {
+      display: inline-block; padding: 12px 22px; background: var(--blue);
+      color: #fff; border-radius: 10px; font-weight: 600; text-decoration: none;
+    }
+    .cta:hover { filter: brightness(1.1); }
+
+    .status { font-size: 14px; color: var(--text-3); min-height: 20px; }
+    .status.ok { color: var(--green); }
+    .status.err { color: #ff9f0a; }
 
     .notice {
       display: flex; gap: 10px; align-items: flex-start;
@@ -134,20 +141,8 @@
     }
     .notice-icon { flex-shrink: 0; }
 
-    .warnings { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
-    .warning {
-      font-size: 14px; color: var(--text);
-      background: rgba(255,159,10,0.1); border: 1px solid rgba(255,159,10,0.3);
-      border-radius: 10px; padding: 11px 14px;
-    }
-
-    .status { font-size: 14px; color: var(--text-3); margin-top: 12px; min-height: 20px; }
-    .status.ok { color: var(--green); }
-    .status.err { color: var(--amber); }
-
     .hidden { display: none !important; }
     .center { text-align: center; padding: 60px 0; }
-    .open-note { font-size: 13px; color: var(--text-3); margin-top: 10px; }
 
     footer { border-top: 1px solid var(--border); padding: 40px; text-align: center; font-size: 13px; color: var(--text-2); }
     footer a { color: var(--text-2); }
@@ -167,12 +162,10 @@
   </nav>
 
   <main>
-    <!-- Loading -->
     <div id="loading" class="center">
       <p>Loading this campaign…</p>
     </div>
 
-    <!-- Fatal error: bad or expired link -->
     <div id="fatal" class="hidden">
       <div class="page-label">Smart Share</div>
       <h1 id="fatal-title">This link doesn't work</h1>
@@ -180,51 +173,52 @@
       <p><a href="/">Go to superpaste.ai</a></p>
     </div>
 
-    <!-- Main flow -->
     <div id="flow" class="hidden">
       <div class="page-label">Smart Share</div>
       <h1 id="campaign-name"></h1>
-      <p id="campaign-lede"></p>
-
-      <!-- Provenance: this is the campaign author's content, shown verbatim. -->
-      <section class="card provenance">
-        <div class="provenance-head">
-          <h2>From the campaign</h2>
-          <span class="provenance-note">Written by whoever made this link, not by SuperPaste.</span>
-        </div>
-        <div id="provenance-fields"></div>
-      </section>
-
-      <h2>Where are you posting it?</h2>
-      <div id="platforms" class="platforms"></div>
+      <p>Someone asked you to help share this. You don't post their words — SuperPaste writes your own version, for whichever app you're posting in.</p>
 
       <section class="card">
-        <div class="editor-head">
-          <h2 id="editor-title">Your post</h2>
-          <span id="counter" class="counter"></span>
+        <h2>How to share it</h2>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <p><strong>Copy this link.</strong> That's the whole setup — the campaign travels with it.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">2</div>
+            <p><strong>Click into the box you'd post in</strong> — LinkedIn, X, Slack, an email, wherever.</p>
+          </div>
+          <div class="step">
+            <div class="step-num">3</div>
+            <p><strong>Press <kbd>⌥V</kbd>.</strong> SuperPaste notices the campaign link, writes a post for that platform, and types it in place. Press it again somewhere else for a different one.</p>
+          </div>
         </div>
-
-        <div id="subject-wrap" class="field hidden">
-          <div class="field-label" id="subject-label">Subject</div>
-          <input type="text" id="subject" autocomplete="off" />
-        </div>
-
-        <textarea id="post" spellcheck="true" placeholder="Pick a platform to generate a post…"></textarea>
-
-        <div id="warnings" class="warnings"></div>
 
         <div class="actions">
-          <button type="button" id="copy" class="primary" disabled>Copy</button>
-          <button type="button" id="regenerate" disabled>Regenerate</button>
-          <button type="button" id="open" class="hidden">Open</button>
+          <button type="button" id="copy" class="primary">Copy link</button>
+          <span id="status" class="status"></span>
         </div>
-        <div id="open-note" class="open-note"></div>
-        <div id="status" class="status"></div>
 
         <div class="notice">
           <span class="notice-icon" aria-hidden="true">⚠</span>
-          <span>This was written by AI from the campaign brief. <strong>Read it before you post it</strong> — you're the one publishing it. SuperPaste never posts anything for you.</span>
+          <span>SuperPaste never posts anything for you. It writes the text into the box and stops there — <strong>read it before you post it</strong>.</span>
         </div>
+      </section>
+
+      <section class="card" id="install">
+        <h2>Don't have SuperPaste yet?</h2>
+        <p>It's a small macOS app. The same <kbd>⌥V</kbd> also writes replies, emails, and code from whatever is on your screen.</p>
+        <a class="cta" href="https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg">Download SuperPaste</a>
+      </section>
+
+      <!-- Provenance: the campaign author's content, shown verbatim and labelled. -->
+      <section class="card provenance">
+        <div class="provenance-head">
+          <h2>What you'd be sharing</h2>
+          <span class="provenance-note">Written by whoever made this link, not by SuperPaste.</span>
+        </div>
+        <div id="provenance-fields"></div>
       </section>
     </div>
   </main>
@@ -244,22 +238,13 @@
       : 'https://superpaste-api.brianjsparker.workers.dev/v1/smart-share';
 
     var el = function (id) { return document.getElementById(id); };
+    var setText = function (node, value) { node.textContent = value == null ? '' : String(value); };
 
-    var state = {
-      token: null,
-      campaign: null,
-      platforms: [],
-      platform: null,
-      // Per platform, the drafts already shown, so Regenerate can ask for something new.
-      drafts: {},
-      busy: false
-    };
+    var state = { token: null, campaign: null, platforms: [] };
 
-    // --- Rendering helpers -------------------------------------------------
-    // Every value below originates in an untrusted link, so text goes in via
+    // --- Rendering ---------------------------------------------------------
+    // Every value below came from an untrusted link, so text is set via
     // textContent and nothing is ever assembled into innerHTML.
-
-    function setText(node, value) { node.textContent = value == null ? '' : String(value); }
 
     function field(label, value) {
       var wrap = document.createElement('div');
@@ -303,235 +288,51 @@
       el('fatal').classList.remove('hidden');
     }
 
-    function status(message, kind) {
-      var node = el('status');
-      setText(node, message);
-      node.className = 'status' + (kind ? ' ' + kind : '');
-    }
-
-    // --- Campaign loading --------------------------------------------------
-
-    function readToken() {
-      var fragment = location.hash.charAt(0) === '#' ? location.hash.slice(1) : location.hash;
-      if (!fragment) return null;
-      try {
-        var value = new URLSearchParams(fragment).get('c');
-        return value && value.length ? value : null;
-      } catch (err) {
-        return null;
-      }
-    }
-
-    function post(path, body) {
-      return fetch(API + path, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-      }).then(function (response) {
-        return response.json().then(
-          function (data) { return { ok: response.ok, status: response.status, data: data }; },
-          function () { return { ok: false, status: response.status, data: {} }; }
-        );
-      });
-    }
-
     function renderProvenance() {
       var host = el('provenance-fields');
       host.textContent = '';
       var campaign = state.campaign;
 
-      host.appendChild(field('What to get across', campaign.intent));
+      host.appendChild(field('The message', campaign.intent));
       if (campaign.requiredFacts && campaign.requiredFacts.length) {
-        host.appendChild(listField('Facts that must appear', campaign.requiredFacts));
+        host.appendChild(listField('Facts every post keeps', campaign.requiredFacts));
       }
       if (campaign.requiredUrl) {
-        host.appendChild(field('Link included in every post', campaign.requiredUrl));
+        host.appendChild(field('Link included every time', campaign.requiredUrl));
       }
       if (campaign.tone) host.appendChild(field('Requested tone', campaign.tone));
       if (campaign.hashtags && campaign.hashtags.length) {
-        host.appendChild(field('Hashtags', campaign.hashtags.map(function (tag) { return '#' + tag; }).join(' ')));
+        host.appendChild(field('Hashtags', campaign.hashtags.map(function (t) { return '#' + t; }).join(' ')));
       }
       if (campaign.prohibitedClaims && campaign.prohibitedClaims.length) {
-        host.appendChild(listField('Things the post must not claim', campaign.prohibitedClaims));
+        host.appendChild(listField('Never claimed', campaign.prohibitedClaims));
       }
       if (campaign.expiresAt) {
         var when = new Date(campaign.expiresAt);
         host.appendChild(field('Link expires', isNaN(when.getTime()) ? campaign.expiresAt : when.toLocaleString()));
       }
-    }
 
-    function renderPlatforms() {
-      var host = el('platforms');
-      host.textContent = '';
-      state.platforms.forEach(function (platform) {
-        var chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'chip';
-        chip.setAttribute('aria-pressed', 'false');
-        chip.dataset.platform = platform.id;
-        setText(chip, platform.label);
-        chip.addEventListener('click', function () { selectPlatform(platform.id); });
-        host.appendChild(chip);
-      });
-    }
-
-    function currentConfig() {
-      for (var i = 0; i < state.platforms.length; i++) {
-        if (state.platforms[i].id === state.platform) return state.platforms[i];
-      }
-      return null;
-    }
-
-    function updateCounter() {
-      var config = currentConfig();
-      var node = el('counter');
-      if (!config) { setText(node, ''); return; }
-      var length = el('post').value.length;
-      if (config.maxChars) {
-        setText(node, length + ' / ' + config.maxChars);
-        node.className = 'counter' + (length > config.maxChars ? ' over' : '');
-      } else {
-        setText(node, length + ' characters');
-        node.className = 'counter';
+      if (state.platforms.length) {
+        var wrap = document.createElement('div');
+        wrap.className = 'field';
+        var head = document.createElement('div');
+        head.className = 'field-label';
+        setText(head, 'Works for');
+        var pills = document.createElement('div');
+        pills.className = 'platform-list';
+        state.platforms.forEach(function (platform) {
+          var pill = document.createElement('span');
+          pill.className = 'pill';
+          setText(pill, platform.label);
+          pills.appendChild(pill);
+        });
+        wrap.appendChild(head);
+        wrap.appendChild(pills);
+        host.appendChild(wrap);
       }
     }
 
-    function renderWarnings(warnings) {
-      var host = el('warnings');
-      host.textContent = '';
-      (warnings || []).forEach(function (warning) {
-        var node = document.createElement('div');
-        node.className = 'warning';
-        setText(node, warning);
-        host.appendChild(node);
-      });
-    }
-
-    // --- Generation --------------------------------------------------------
-
-    function selectPlatform(id) {
-      if (state.busy) return;
-      state.platform = id;
-
-      var chips = el('platforms').querySelectorAll('.chip');
-      for (var i = 0; i < chips.length; i++) {
-        chips[i].setAttribute('aria-pressed', chips[i].dataset.platform === id ? 'true' : 'false');
-      }
-
-      var config = currentConfig();
-      setText(el('editor-title'), config ? 'Your ' + config.label + ' post' : 'Your post');
-      el('subject-wrap').classList.toggle('hidden', !(config && config.hasSubject));
-      if (config && config.hasSubject) {
-        setText(el('subject-label'), config.id === 'reddit' ? 'Title' : 'Subject');
-      }
-
-      generate(false);
-    }
-
-    function setBusy(busy) {
-      state.busy = busy;
-      el('regenerate').disabled = busy || !state.platform;
-      el('copy').disabled = busy || !el('post').value.trim();
-    }
-
-    function generate(isRegenerate) {
-      var platform = state.platform;
-      if (!platform) return;
-
-      setBusy(true);
-      renderWarnings([]);
-      status(isRegenerate ? 'Writing a different version…' : 'Writing your post…');
-      el('open').classList.add('hidden');
-      setText(el('open-note'), '');
-
-      var previous = state.drafts[platform] || [];
-      post('/generate', {
-        campaign: state.token,
-        platform: platform,
-        seed: Math.floor(Math.random() * 1000000),
-        previousDrafts: previous
-      }).then(function (result) {
-        if (state.platform !== platform) return; // user switched while waiting
-
-        if (!result.ok) {
-          var message = (result.data && result.data.message) || 'Something went wrong. Try again.';
-          status(message, 'err');
-          setBusy(false);
-          return;
-        }
-
-        var data = result.data;
-        el('post').value = data.text || '';
-        if (data.subject) el('subject').value = data.subject;
-
-        state.drafts[platform] = previous.concat([data.text || '']).slice(-3);
-
-        renderWarnings(data.warnings);
-        updateCounter();
-        status('');
-        setBusy(false);
-        el('copy').disabled = !el('post').value.trim();
-
-        setupOpen(data.destinationUrl);
-      }).catch(function () {
-        if (state.platform !== platform) return;
-        status("Couldn't reach SuperPaste. Check your connection and try again.", 'err');
-        setBusy(false);
-      });
-    }
-
-    function setupOpen(destinationUrl) {
-      var config = currentConfig();
-      var button = el('open');
-      if (!config || !config.openLabel || !destinationUrl) {
-        button.classList.add('hidden');
-        setText(el('open-note'), '');
-        return;
-      }
-      setText(button, config.openLabel);
-      button.classList.remove('hidden');
-      setText(el('open-note'), config.openNote || '');
-    }
-
-    // Mirrors applyIntentUrl in server/src/smartshare/platforms.ts. The template
-    // itself comes from the server, so the per-platform URL shapes are defined
-    // in exactly one place — this only substitutes into it.
-    function applyIntentUrl(intent, values) {
-      var result = intent.template;
-      var keys = ['text', 'subject', 'url'];
-      for (var i = 0; i < keys.length; i++) {
-        var key = keys[i];
-        var placeholder = '{' + key + '}';
-        if (result.indexOf(placeholder) === -1) continue;
-        var value = values[key];
-        if (key === 'url' && !value) return null;
-        var encoded = encodeURIComponent(value == null ? '' : value);
-        if (intent.spacesAsPercent20) encoded = encoded.replace(/\+/g, '%20');
-        result = result.split(placeholder).join(encoded);
-      }
-      return result;
-    }
-
-    // The URL is rebuilt from the CURRENT editor contents rather than from the
-    // generated draft, so edits the user made are never silently discarded.
-    function openDestination() {
-      var config = currentConfig();
-      if (!config || !config.intentUrl) return;
-
-      var text = el('post').value.trim();
-      var url = applyIntentUrl(config.intentUrl, {
-        text: text,
-        subject: el('subject').value.trim(),
-        url: state.campaign.requiredUrl
-      });
-      if (!url) return;
-
-      if (config.prefill !== 'text') {
-        // Nothing will be prefilled, so put the copy on the clipboard first.
-        copyToClipboard(text).catch(function () { /* opening still helps */ });
-      }
-      window.open(url, '_blank', 'noopener');
-    }
+    // --- Clipboard ---------------------------------------------------------
 
     function copyToClipboard(text) {
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -555,51 +356,55 @@
       });
     }
 
-    // --- Wiring ------------------------------------------------------------
-
     el('copy').addEventListener('click', function () {
-      var config = currentConfig();
-      var text = el('post').value;
-      // Email and Reddit need the subject too, or the copy is half the post.
-      if (config && config.hasSubject && el('subject').value.trim()) {
-        var label = config.id === 'reddit' ? 'Title' : 'Subject';
-        text = label + ': ' + el('subject').value.trim() + '\n\n' + text;
-      }
-      copyToClipboard(text).then(function () {
-        status('Copied. Read it once more before you post.', 'ok');
+      // The current URL *is* the campaign link, fragment included.
+      copyToClipboard(location.href).then(function () {
+        var node = el('status');
+        setText(node, 'Copied. Now click into a post box and press ⌥V.');
+        node.className = 'status ok';
       }).catch(function () {
-        status('Copying failed — select the text and copy it manually.', 'err');
+        var node = el('status');
+        setText(node, 'Copying failed — select the address bar and copy it manually.');
+        node.className = 'status err';
       });
     });
 
-    el('regenerate').addEventListener('click', function () { generate(true); });
-    el('open').addEventListener('click', openDestination);
-    el('post').addEventListener('input', function () {
-      updateCounter();
-      el('copy').disabled = !el('post').value.trim();
-    });
-
     // --- Boot --------------------------------------------------------------
+
+    function readToken() {
+      var fragment = location.hash.charAt(0) === '#' ? location.hash.slice(1) : location.hash;
+      if (!fragment) return null;
+      try {
+        var value = new URLSearchParams(fragment).get('c');
+        return value && value.length ? value : null;
+      } catch (err) {
+        return null;
+      }
+    }
 
     state.token = readToken();
     if (!state.token) {
       fatal(
         'This link is missing its campaign',
-        'A Smart Share link needs a campaign attached to it. Ask whoever sent it for the full link, or make your own on the Smart Share page.'
+        'A Smart Share link carries its campaign in the part of the URL after the #. Ask whoever sent it for the complete link.'
       );
       return;
     }
 
-    post('/resolve', { campaign: state.token }).then(function (result) {
+    fetch(API + '/resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ campaign: state.token })
+    }).then(function (response) {
+      return response.json().then(function (data) {
+        return { ok: response.ok, data: data };
+      });
+    }).then(function (result) {
       if (!result.ok) {
-        var code = result.data && result.data.error;
-        if (code === 'campaign_expired') {
-          fatal('This campaign has ended', 'The person who made this link set it to expire, and that date has passed.');
+        if (result.data && result.data.error === 'campaign_expired') {
+          fatal('This campaign has ended', 'Whoever made this link set it to expire, and that date has passed.');
         } else {
-          fatal(
-            "This link isn't valid",
-            (result.data && result.data.message) || 'The campaign attached to this link could not be read.'
-          );
+          fatal("This link isn't valid", (result.data && result.data.message) || 'The campaign attached to this link could not be read.');
         }
         return;
       }
@@ -608,21 +413,12 @@
       state.platforms = result.data.platforms || [];
 
       setText(el('campaign-name'), state.campaign.name);
-      setText(
-        el('campaign-lede'),
-        'Someone asked you to help share this. Pick where you’re posting and SuperPaste will write a version for that platform — your own wording, the same message.'
-      );
-
       renderProvenance();
-      renderPlatforms();
 
       el('loading').classList.add('hidden');
       el('flow').classList.remove('hidden');
-
-      // Start on the first supported platform so the page is useful immediately.
-      if (state.platforms.length > 0) selectPlatform(state.platforms[0].id);
     }).catch(function () {
-      fatal("Couldn't load this campaign", 'SuperPaste could not be reached. Check your connection and reload the page.');
+      fatal("Couldn't load this campaign", 'SuperPaste could not be reached. Check your connection and reload.');
     });
   })();
   </script>

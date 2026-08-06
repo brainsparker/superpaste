@@ -66,6 +66,12 @@
     strong { color: var(--text); font-weight: 600; }
     a { color: var(--text); text-decoration: underline; text-underline-offset: 3px; }
     code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; }
+    kbd {
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      font-size: 14px; font-weight: 600; color: var(--text);
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 6px; padding: 2px 7px;
+    }
 
     .lede { font-size: 19px; margin-bottom: 8px; }
 
@@ -135,17 +141,6 @@
       margin-bottom: 14px;
     }
 
-    .previews { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .preview { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-    .preview-head {
-      display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-      margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
-    }
-    .preview-name { font-size: 14px; font-weight: 600; }
-    .preview-count { font-size: 12px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-    .preview-count.over { color: var(--amber); }
-    .preview-body { font-size: 14px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text); min-height: 120px; }
-    .preview-body.empty { color: var(--text-3); }
 
     .notice {
       display: flex; gap: 10px; align-items: flex-start;
@@ -164,7 +159,6 @@
     @media (max-width: 768px) {
       nav { padding: 0 20px; }
       main { padding-top: 90px; }
-      .previews { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -180,6 +174,7 @@
     <h1>Share the message, not the copy.</h1>
     <p class="lede">Write down what you want people to get across. Everyone who opens your link gets their own version of it, written for whichever platform they're posting to.</p>
     <p>No two people post the same paragraph. The facts, the link, and your guardrails survive every version.</p>
+    <p>Sharers need SuperPaste installed: they copy your link, press <kbd>⌥V</kbd> where they want to post, and the right post appears. Nothing is generated in the browser.</p>
 
     <form id="form" novalidate>
       <h2>The campaign</h2>
@@ -247,7 +242,6 @@
 
       <div class="actions">
         <button type="submit" id="create" class="primary">Create share link</button>
-        <button type="button" id="preview" disabled>Preview LinkedIn &amp; X</button>
         <span id="status" class="status"></span>
       </div>
       <div id="errors" class="errors"></div>
@@ -271,26 +265,11 @@
     </div>
 
     <div id="preview-wrap" class="hidden">
-      <h2>Preview</h2>
-      <p>Two examples of what people will get. Everyone who opens your link sees something different.</p>
-      <div class="previews">
-        <div class="preview">
-          <div class="preview-head">
-            <span class="preview-name">LinkedIn</span>
-            <span class="preview-count" id="count-linkedin"></span>
-          </div>
-          <div class="preview-body empty" id="body-linkedin">Not generated yet.</div>
-        </div>
-        <div class="preview">
-          <div class="preview-head">
-            <span class="preview-name">X</span>
-            <span class="preview-count" id="count-x"></span>
-          </div>
-          <div class="preview-body empty" id="body-x">Not generated yet.</div>
-        </div>
-      </div>
-      <div id="preview-warnings" class="errors"></div>
+      <h2>See what people will get</h2>
+      <p>Copy the link above, click into a LinkedIn or X post box, and press <kbd>⌥V</kbd>. That is exactly what a sharer sees, generated the same way — the best preview is the real thing.</p>
+      <p>Press it again, or in a different app, and you'll get a different post from the same campaign. That's the point.</p>
     </div>
+
   </main>
 
   <footer>
@@ -462,7 +441,7 @@
 
         setText(el('link'), state.link);
         el('result').classList.remove('hidden');
-        el('preview').disabled = false;
+        el('preview-wrap').classList.remove('hidden');
         status(el('status'), 'Link ready.', 'ok');
         el('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }).catch(function () {
@@ -482,97 +461,6 @@
 
     el('open-link').addEventListener('click', function () {
       if (state.link) window.open(state.link, '_blank', 'noopener');
-    });
-
-    // --- Preview -----------------------------------------------------------
-
-    function renderPreview(platform, data) {
-      var body = el('body-' + platform);
-      var count = el('count-' + platform);
-      setText(body, data.text || '');
-      body.classList.toggle('empty', !(data.text || '').length);
-
-      var config = null;
-      for (var i = 0; i < PLATFORMS.length; i++) {
-        if (PLATFORMS[i].id === platform) config = PLATFORMS[i];
-      }
-      var length = (data.text || '').length;
-      if (config && config.maxChars) {
-        setText(count, length + ' / ' + config.maxChars);
-        count.className = 'preview-count' + (length > config.maxChars ? ' over' : '');
-      } else {
-        setText(count, length + ' characters');
-        count.className = 'preview-count';
-      }
-    }
-
-    el('preview').addEventListener('click', function () {
-      if (!state.token) return;
-
-      var wanted = ['linkedin', 'x'].filter(function (platform) {
-        return state.campaign.supportedPlatforms.indexOf(platform) !== -1;
-      });
-
-      el('preview-wrap').classList.remove('hidden');
-      el('preview-warnings').textContent = '';
-
-      if (wanted.length === 0) {
-        status(el('status'), 'Enable LinkedIn or X above to preview them.', 'err');
-        return;
-      }
-
-      ['linkedin', 'x'].forEach(function (platform) {
-        var body = el('body-' + platform);
-        if (wanted.indexOf(platform) === -1) {
-          setText(body, 'Not enabled for this campaign.');
-          body.classList.add('empty');
-          setText(el('count-' + platform), '');
-        } else {
-          setText(body, 'Writing…');
-          body.classList.add('empty');
-        }
-      });
-
-      el('preview').disabled = true;
-      status(el('status'), 'Writing previews…');
-
-      Promise.all(wanted.map(function (platform) {
-        return post('/generate', {
-          campaign: state.token,
-          platform: platform,
-          seed: Math.floor(Math.random() * 1000000)
-        }).then(function (result) { return { platform: platform, result: result }; });
-      })).then(function (results) {
-        el('preview').disabled = false;
-        var warnings = [];
-
-        results.forEach(function (entry) {
-          if (!entry.result.ok) {
-            var body = el('body-' + entry.platform);
-            setText(body, (entry.result.data && entry.result.data.message) || 'Could not write this preview.');
-            body.classList.add('empty');
-            return;
-          }
-          renderPreview(entry.platform, entry.result.data);
-          (entry.result.data.warnings || []).forEach(function (warning) {
-            warnings.push(entry.platform + ': ' + warning);
-          });
-        });
-
-        var host = el('preview-warnings');
-        warnings.forEach(function (warning) {
-          var node = document.createElement('div');
-          node.className = 'error';
-          setText(node, warning);
-          host.appendChild(node);
-        });
-
-        status(el('status'), warnings.length ? 'Previews written, with warnings.' : 'Previews written.', warnings.length ? 'err' : 'ok');
-        el('preview-wrap').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }).catch(function () {
-        el('preview').disabled = false;
-        status(el('status'), "Couldn't reach SuperPaste. Check your connection.", 'err');
-      });
     });
 
     // --- Boot --------------------------------------------------------------
