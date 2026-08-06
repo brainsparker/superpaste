@@ -96,11 +96,106 @@ The reset command is also available directly:
 ./bin/reset-onboarding.sh --permissions
 ```
 
+## Smart Share Links
+
+**Share the message, not the copy.**
+
+A Smart Share Link lets you define what you want people to get across without writing the post for them. You describe the message, the facts that must survive, the link, and what nobody should claim. Everyone who opens your link picks where they're posting and gets their own version written for that platform.
+
+Nobody ends up posting the same paragraph as everyone else, and the facts, the link, and your guardrails survive every version.
+
+This is separate from the Option+V paste flow — it's a web feature, and the macOS app is not involved.
+
+### Creating a campaign
+
+Go to [superpaste.ai/smart-share](https://superpaste.ai/smart-share) and fill in:
+
+| Field | Required | Notes |
+|---|---|---|
+| Campaign name | yes | Shown to people who open the link |
+| Message / intent | yes | The point to get across, not the wording |
+| Link | no | http/https only, included verbatim with no tracking added |
+| Required facts | no | Up to 8; every post carries all of them |
+| Hashtags | no | Up to 6; only used where they read naturally |
+| Tone | no | A few words |
+| Prohibited claims | no | Up to 10; drafts are checked against these |
+| Supported platforms | yes | Only these are offered to sharers |
+| Expiration date | no | After it, the link stops working |
+
+You get a link, plus a LinkedIn and X preview so you can see what people will actually receive.
+
+### Opening a campaign
+
+The link goes to `/share`. The page shows the campaign name, exactly which parts came from the campaign author, and a platform picker: LinkedIn, X, Threads, Bluesky, Facebook, Reddit, Slack, Email, or generic. Pick one and you get a post you can copy, edit, or regenerate for something different. Where a platform has a share URL that genuinely prefills text, there's a button to open it.
+
+**SuperPaste never posts anything for you.** Every draft is reviewed by the person sharing it before it goes anywhere.
+
+### Where the campaign lives
+
+There is no campaign database. The whole campaign is encoded into the link's **fragment** (`/share#c=…`), which means:
+
+- Nothing is stored on a server, and the feature works without a hosted service.
+- Fragments aren't sent in the HTTP request line, so campaign contents stay out of server logs and `Referer` headers.
+- Anyone holding the link can decode it. **Never put anything private in a campaign.**
+- A published link can't be edited or revoked. To change a campaign, make a new link.
+
+Storage sits behind `SmartShareCampaignProvider` (`server/src/smartshare/provider.ts`), so a hosted provider with short opaque ids can be added later without touching the schema, prompts, or UI.
+
+### Layout
+
+Everything lives in the Worker plus two static pages. The macOS app is untouched.
+
+```
+server/src/smartshare/
+  schema.ts      types, validation, field limits, URL + expiry checks
+  codec.ts       campaign <-> link token, fragment-based link building
+  platforms.ts   per-platform voice, length, and share-URL config
+  prompt.ts      prompt construction and post-generation guardrail checks
+  generate.ts    the only place that calls a model
+  provider.ts    storage interface + the local encoded-link provider
+  analytics.ts   interface + no-op only (see below)
+  routes.ts      HTTP surface, CORS, rate limits, daily cost ceiling
+website/
+  smart-share.html   campaign creation + LinkedIn/X preview
+  share.html         the page a sharer opens
+```
+
+Platform rules live only in `platforms.ts`; the UI reads them over HTTP from `GET /v1/smart-share/platforms` so nothing is duplicated in page code. Adding a platform means one entry there plus one union member in `schema.ts`.
+
+### Treating campaign links as hostile
+
+A campaign arrives from a URL a stranger can hand-edit, so:
+
+- Every field is schema-validated with a hard length cap; control characters and bidi overrides are stripped.
+- URLs must be `http`/`https` with no embedded credentials — `javascript:` and `data:` are rejected at the schema boundary, not at render time.
+- Oversized payloads are rejected before being parsed, and unknown/newer schema versions are refused rather than half-understood.
+- **Campaign text never enters the system prompt.** It goes in the user message, JSON-encoded, inside a block whose delimiter carries a nonce the campaign author cannot predict. There's a test asserting no campaign text reaches the system prompt on any platform.
+- The share page renders every campaign-supplied value through `textContent`, never `innerHTML`, and labels which content came from the campaign.
+- Generated copy is checked for the required link, prohibited phrases, and platform length limits; anything that fails is shown to the user as a warning rather than quietly returned.
+
+`/v1/smart-share/generate` is necessarily unauthenticated, so it carries a per-IP burst limiter, a global daily ceiling with **its own** KV counter (Smart Share traffic can never eat the paste product's trial or licensed capacity), and hard request-size caps.
+
+### Analytics
+
+There are none, and there won't be. `analytics.ts` defines an interface and a no-op, because the contributing rule is "No telemetry, ever." The seam exists only so someone self-hosting can measure their own campaigns; the shipped build keeps the no-op.
+
+### Working on it
+
+```bash
+cd server
+npm install
+npm test        # node:test, no test framework dependency
+npm run typecheck
+```
+
+Tests cover schema validation, link parsing, prompt construction, and the full create → resolve → generate route path with a stubbed model. `npm test` runs the TypeScript sources directly — Node 22 strips types natively, so there's no build step and no test runner to install.
+
 ## Privacy
 
 - SuperPaste captures one active-window screenshot only when you press Option+V.
 - The screenshot is sent to the SuperPaste backend for generation and immediately discarded after processing. In bring-your-own-key mode it goes directly from your Mac to Anthropic — the SuperPaste backend never sees it.
 - Accessibility is used for the global hotkey and the final `⌘V` paste.
+- Smart Share Links send the campaign and the chosen platform to the backend to write the post, and nothing else — no visitor identifier, no cookie, no stored record of who opened a link.
 - No analytics, no telemetry, no crash reporting. If something goes wrong, please file an issue.
 
 Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https://superpaste.ai/terms) · [Refunds](https://superpaste.ai/refunds)
@@ -111,6 +206,7 @@ Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https:/
 - **Cloudflare Worker** backend proxy for model requests
 - **CGEvent** tap for the hotkey, **NSPasteboard** + synthesized `⌘V` for the paste
 - **Sparkle 2** for signed, automatic in-app updates
+- **Smart Share Links** as a self-contained Worker module plus two static pages, with no coupling to the paste path
 
 ## Contributing
 

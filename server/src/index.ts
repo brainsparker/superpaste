@@ -14,11 +14,13 @@
  * KV: SUPERPASTE_KV (create with `wrangler kv namespace create SUPERPASTE_KV`)
  */
 
+import { handleSmartShareRequest, type SmartShareEnv } from "./smartshare/routes.ts";
+
 interface RateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
-export interface Env {
+export interface Env extends SmartShareEnv {
   ANTHROPIC_API_KEY: string;
   POLAR_ACCESS_TOKEN: string;
   POLAR_ORGANIZATION_ID: string;
@@ -307,6 +309,13 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const clientIP = request.headers.get("CF-Connecting-IP") ?? "unknown";
+
+    // --- Routes: /v1/smart-share/* ---
+    // Self-contained feature module with its own limiter, its own daily cap, and
+    // its own prompts. Returns null for anything that isn't a Smart Share path,
+    // so the paste routes below are unaffected.
+    const smartShareResponse = await handleSmartShareRequest(request, env, ctx);
+    if (smartShareResponse) return smartShareResponse;
 
     // --- Route: POST /v1/validate-license ---
     if (request.method === "POST" && url.pathname === "/v1/validate-license") {

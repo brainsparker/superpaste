@@ -4,6 +4,11 @@
     "lib": ["ES2022"],
     "module": "ES2022",
     "moduleResolution": "bundler",
+    // Imports carry explicit .ts extensions so `node --test` can run the
+    // sources directly (Node 22 strips types natively). Wrangler/esbuild
+    // resolves them the same way, and tsc is typecheck-only here.
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "types": ["@cloudflare/workers-types"],
     "strict": true,
     "noUnusedLocals": true,
@@ -11,6 +16,8 @@
     "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true
   },
+  // Worker sources only. Tests get their own config so Node globals never leak
+  // into code that runs on Workers (tsconfig.tests.json).
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules"]
 }
