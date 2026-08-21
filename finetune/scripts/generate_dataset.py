@@ -198,6 +198,14 @@ RESPONSE_LENGTH = [
 LANGS = [("English", 0.85), ("Spanish", 0.04), ("German", 0.03), ("French", 0.03),
          ("Portuguese", 0.03), ("Japanese", 0.02)]
 
+# Categories whose correct paste is inherently short: never roll medium/long
+# length hints for them (a "long" hint on low_context contradicts the
+# directive and produces mushy training data).
+SHORT_ONLY_CATEGORIES = {"low_context", "form_field", "terminal_command", "social_reply"}
+
+# Code/terminal surfaces: prose register doesn't apply (no "stiff corporate" bash).
+NO_REGISTER_CATEGORIES = {"code", "terminal_command"}
+
 SCENARIO_PROMPT = """You are generating synthetic training data for a Mac utility that pastes AI text at the cursor. Write ONE realistic context block describing the active window of a Mac user, in EXACTLY this format (all seven fields, same order):
 
 <context>
@@ -248,7 +256,10 @@ def build_scenario_prompts(n: int) -> list[dict]:
         cat_name, (_, pool, directive) = random.choices(cats, weights=weights, k=1)[0]
         surf = SURFACES[random.choice(pool)]
         lang = sample_lang()
-        length_key, length_hint = random.choice(RESPONSE_LENGTH)
+        length_pool = RESPONSE_LENGTH[:2] if cat_name in SHORT_ONLY_CATEGORIES else RESPONSE_LENGTH
+        length_key, length_hint = random.choice(length_pool)
+        register = ("the code/commands on screen follow whatever conventions the project shows"
+                    if cat_name in NO_REGISTER_CATEGORIES else random.choice(FORMALITY))
         prompts.append({
             "category": cat_name,
             "length": length_key,
@@ -259,7 +270,7 @@ def build_scenario_prompts(n: int) -> list[dict]:
                 names=random.choice(NAME_STYLES),
                 depth_line=("Conversation depth: " + random.choice(THREAD_DEPTH) + ".")
                            if cat_name in ("chat_reply", "continue_draft", "social_reply") else "",
-                formality=random.choice(FORMALITY),
+                formality=register,
                 length_hint=length_hint,
                 lang=lang,
                 lang_note="" if lang == "English" else
