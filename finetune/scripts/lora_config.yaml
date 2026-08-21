@@ -1,0 +1,45 @@
+# MLX-LM LoRA config for the SuperPaste local model.
+# Run on any Apple Silicon Mac (16GB+ comfortable for a 2B base at QLoRA).
+#
+#   pip install mlx-lm
+#   mlx_lm.lora --config lora_config.yaml
+#
+# Base model choice (see PLAYBOOK.md for the full comparison):
+#   - Qwen/Qwen3.5-2B-Instruct  <- recommended starting point (Apache 2.0)
+#   - Qwen/Qwen3.5-0.8B-Instruct (smallest download, weakest writing)
+#   - openbmb/MiniCPM5-1B        (strong 1B class, Apache 2.0)
+
+model: "Qwen/Qwen3.5-2B-Instruct"
+train: true
+
+# Data directory containing train.jsonl / valid.jsonl in chat format
+data: "../data"
+
+# LoRA
+fine_tune_type: lora
+num_layers: 16          # apply adapters to the last 16 transformer layers
+lora_parameters:
+  rank: 16
+  scale: 20.0
+  dropout: 0.05
+  keys: ["self_attn.q_proj", "self_attn.k_proj", "self_attn.v_proj", "self_attn.o_proj"]
+
+# Training
+batch_size: 4
+iters: 1200             # ~2-3 epochs on 1800 train examples at batch 4
+learning_rate: 1.0e-5
+lr_schedule:
+  name: cosine_decay
+  arguments: [1.0e-5, 1200, 1.0e-6]
+warmup: 100
+max_seq_length: 4096    # context blocks are capped at ~3000 chars + response
+grad_checkpoint: true   # trade speed for memory; drop on 32GB+ machines
+
+# Eval / checkpoints
+val_batches: 25
+steps_per_report: 20
+steps_per_eval: 100
+save_every: 200
+adapter_path: "../adapters"
+
+seed: 42
