@@ -116,6 +116,14 @@ final class LLMService {
         UserDefaults.standard.set(data, forKey: "llmProviderConfig")
     }
 
+    /// Applies common headers that identify the request as coming from SuperPaste
+    /// — User-Agent with version/URL so providers see where traffic originates,
+    /// plus a stable device ID for rate limiting.
+    private static func applyAttributionHeaders(_ request: inout URLRequest) {
+        request.setValue(APIConfig.userAgent, forHTTPHeaderField: "User-Agent")
+        request.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
+    }
+
     // MARK: - API Call
 
     func process(context: ScreenCaptureService.CapturedContext) async throws -> String {
@@ -220,7 +228,7 @@ final class LLMService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue(DeviceID.current, forHTTPHeaderField: "X-Device-ID")
+        Self.applyAttributionHeaders(&urlRequest)
         if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
             urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
         }
@@ -336,6 +344,9 @@ final class LLMService {
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         urlRequest.setValue(APIConfig.anthropicVersion, forHTTPHeaderField: "anthropic-version")
+        // Attribution — lets Anthropic identify SuperPaste traffic in their dashboards.
+        Self.applyAttributionHeaders(&urlRequest)
+        urlRequest.setValue("https://superpaste.ai", forHTTPHeaderField: "Anthropic-Origin")
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
@@ -468,10 +479,12 @@ final class LLMService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        // Attribution — lets every provider identify SuperPaste traffic.
+        Self.applyAttributionHeaders(&urlRequest)
 
-        // OpenRouter-specific headers
+        // OpenRouter-specific attribution: referer and title appear in their dashboard.
         if baseURL.contains("openrouter.ai") {
-            urlRequest.setValue("superpaste", forHTTPHeaderField: "HTTP-Referer")
+            urlRequest.setValue("https://superpaste.ai", forHTTPHeaderField: "HTTP-Referer")
             urlRequest.setValue("SuperPaste", forHTTPHeaderField: "X-Title")
         }
 

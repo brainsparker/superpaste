@@ -13,7 +13,7 @@ enum APIConfig {
     static let validateLicenseURL = "https://superpaste-api.brianjsparker.workers.dev/v1/validate-license"
     #endif
 
-    /// Bring-your-own-key mode talks to Anthropic directly.
+    /// Bring-your-own-key mode talks to providers directly.
     static let anthropicDirectURL = "https://api.anthropic.com/v1/messages"
     static let anthropicVersion = "2023-06-01"
 
@@ -29,6 +29,17 @@ enum APIConfig {
     /// Emitted by the model when it can't infer what to write; the app shows
     /// an error instead of pasting it. Must match UNCLEAR_SENTINEL server-side.
     static let unclearSentinel = "[[SUPERPASTE_UNCLEAR]]"
+
+    // MARK: - User-Agent / Attribution
+
+    /// User-Agent header sent with every provider request so the provider can
+    /// identify traffic originating from SuperPaste in their dashboards.
+    /// Format: "SuperPaste/{version} ({bundle_id}; +https://superpaste.ai)"
+    static var userAgent: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let bundleID = Bundle.main.bundleIdentifier ?? "com.superpaste.app"
+        return "SuperPaste/\(version) (\(bundleID); +https://superpaste.ai)"
+    }
 
     // MARK: - System Prompt
 
