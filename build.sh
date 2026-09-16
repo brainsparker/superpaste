@@ -1,9 +1,10 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
+source "$REPO/scripts/dev-config.sh"
 SPM="$REPO/SuperPaste"
-APP="$REPO/SuperPaste.app"
+APP="$DEV_APP"
 RESET_ONBOARDING=false
 RESET_PERMISSIONS=false
 LAUNCH_APP=true
@@ -47,6 +48,12 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
+CERT_NAME="SuperPaste Developer"
+if ! security find-identity -v -p codesigning 2>/dev/null | grep "\"${CERT_NAME}\"" >/dev/null; then
+    echo "Stable signing identity missing. Run ./setup_codesign.sh before building." >&2
+    exit 1
+fi
+
 if [[ "${RESET_ONBOARDING}" == true ]]; then
     RESET_ARGS=()
     if [[ "${RESET_PERMISSIONS}" == true ]]; then
@@ -60,13 +67,23 @@ cd "$SPM"
 swift build -c release --product SuperPaste
 
 echo "Packaging..."
+pkill -x "$DEV_EXECUTABLE" 2>/dev/null || true
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 mkdir -p "$APP/Contents/Resources"
 
-cp "$SPM/.build/release/SuperPaste"  "$APP/Contents/MacOS/"
+cp "$SPM/.build/release/SuperPaste"  "$APP/Contents/MacOS/$DEV_EXECUTABLE"
 cp "$SPM/Resources/Info.plist"       "$APP/Contents/"
 cp "$SPM/Resources/AppIcon.icns"     "$APP/Contents/Resources/"
+
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $DEV_BUNDLE_ID" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName $DEV_APP_NAME" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DEV_APP_NAME" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $DEV_EXECUTABLE" "$APP/Contents/Info.plist"
+# Development builds must never install the release app under their identity.
+/usr/libexec/PlistBuddy -c "Delete :SUFeedURL" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :SUEnableAutomaticChecks false" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :SUAutomaticallyUpdate false" "$APP/Contents/Info.plist"
 
 # Copy asset catalog resources if present
 if [ -d "$SPM/.build/release/SuperPaste_SuperPaste.bundle" ]; then
@@ -79,23 +96,9 @@ echo "Signing..."
 # Persistent self-signed cert keeps macOS TCC grants (Accessibility, Screen Recording)
 # alive across rebuilds. Ad-hoc signing ties the grant to a cdhash that changes on every
 # recompile, forcing the user back into System Settings each time.
-CERT_NAME="SuperPaste Developer"
-if security find-identity -v -p codesigning 2>/dev/null | grep -q "\"${CERT_NAME}\""; then
-    codesign -s "${CERT_NAME}" --force --deep "$APP"
-else
-    echo ""
-    echo "  No '${CERT_NAME}' certificate found — falling back to ad-hoc signing."
-    echo "  Accessibility permission will break on each rebuild."
-    echo "  Run ./setup_codesign.sh once to fix this permanently."
-    echo ""
-    codesign -s - --force --deep "$APP"
-fi
+codesign -s "${CERT_NAME}" --force --deep "$APP"
 
 if [[ "${LAUNCH_APP}" == true ]]; then
-    # Kill any previous instance
-    pkill -x SuperPaste 2>/dev/null || true
-    sleep 0.5
-
     echo "Launching..."
     open "$APP"
 fi

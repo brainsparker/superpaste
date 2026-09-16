@@ -18,6 +18,7 @@ dist/
 
 # App output
 SuperPaste.app/
+SuperPaste Dev.app/
 
 # Wrangler
 server/.wrangler/

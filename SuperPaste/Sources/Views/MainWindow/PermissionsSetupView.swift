@@ -54,7 +54,7 @@ struct PermissionsSetupView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press Option V. Text appears.")
+            Text("Press \(HotkeyPreset.current.shortName). Text appears.")
 
             Text("Two one-time permissions make the magic paste work.")
                 .font(.subheadline)
@@ -67,7 +67,7 @@ struct PermissionsSetupView: View {
             PermissionSetupRow(
                 icon: "rectangle.inset.filled.and.cursorarrow",
                 title: "Screen Recording",
-                detail: "Captures one snapshot of the active window only when you press Option V.",
+                detail: "Captures one snapshot of the active window only when you press \(HotkeyPreset.current.shortName).",
                 isEnabled: appState.screenRecordingEnabled
             )
 

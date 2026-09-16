@@ -29,6 +29,8 @@ final class UpdateController: NSObject, ObservableObject, SPUUpdaterDelegate {
     private override init() {
         super.init()
 
+        guard Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") is String else { return }
+
         updaterController = SPUStandardUpdaterController(
             startingUpdater: false,
             updaterDelegate: self,
@@ -59,6 +61,7 @@ final class UpdateController: NSObject, ObservableObject, SPUUpdaterDelegate {
     }
 
     func setAutomaticallyKeepsUpToDate(_ enabled: Bool) {
+        guard updaterController != nil else { return }
         // Keep lightweight checks enabled even when the user prefers to approve
         // each install. The toggle controls background download + installation.
         updater.automaticallyChecksForUpdates = true

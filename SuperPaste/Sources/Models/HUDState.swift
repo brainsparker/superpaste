@@ -20,11 +20,17 @@ enum HUDStage: Equatable {
 
 enum HUDRecoveryAction: Equatable {
     case openSettings
+    case screenPermission
+    case accessibilityPermission
     case retry
     case copyResponse
 
     var title: String {
         switch self {
+        case .screenPermission:
+            return "Screen Recording Settings"
+        case .accessibilityPermission:
+            return "Accessibility Settings"
         case .openSettings:
             return "Open Settings"
         case .retry:
@@ -36,7 +42,7 @@ enum HUDRecoveryAction: Equatable {
 
     var icon: String {
         switch self {
-        case .openSettings:
+        case .openSettings, .screenPermission, .accessibilityPermission:
             return "gear"
         case .retry:
             return "arrow.clockwise"
@@ -61,6 +67,9 @@ final class HUDState: ObservableObject {
     /// Invoked when the user cancels from the HUD (✕ button). Set by AppState.
     var onCancel: (() -> Void)?
     var onOpenSettings: (() -> Void)?
+    var onScreenPermission: (() -> Void)?
+    var onAccessibilityPermission: (() -> Void)?
+    @Published private(set) var lastFailure: PasteFailure?
     var onRetry: (() -> Void)?
     var onCopyResponse: (() -> Void)?
 
@@ -120,13 +129,15 @@ final class HUDState: ObservableObject {
         }
     }
 
-    func showError(_ message: String) {
+    func showError(_ failure: PasteFailure) {
+        lastFailure = failure
+        let message = failure.message
         cancelTasks()
         isVisible = true
         stage = .error(message)
         currentPhrase = "Couldn't paste"
         secondaryPhrase = nil
-        recoveryAction = Self.recoveryAction(for: message)
+        recoveryAction = failure.recovery
         announce("SuperPaste error: \(message)")
 
         // Errors stay long enough to actually be read (slow readers, screen
@@ -203,30 +214,4 @@ final class HUDState: ObservableObject {
         previewTask = nil
     }
 
-    private static func recoveryAction(for message: String) -> HUDRecoveryAction? {
-        let normalized = message.lowercased()
-
-        if normalized.contains("permission")
-            || normalized.contains("settings")
-            || normalized.contains("trial ended") {
-            return .openSettings
-        }
-
-        if normalized.contains("response copied") || normalized.contains("focus changed") {
-            return .copyResponse
-        }
-
-        if normalized.contains("try again")
-            || normalized.contains("network")
-            || normalized.contains("connect")
-            || normalized.contains("internet")
-            || normalized.contains("server")
-            || normalized.contains("timeout")
-            || normalized.contains("took too long")
-            || normalized.contains("capture") {
-            return .retry
-        }
-
-        return nil
-    }
 }
