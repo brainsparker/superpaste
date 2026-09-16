@@ -81,6 +81,10 @@ final class AppState: ObservableObject {
     let clipboardService = ClipboardService.shared
     let llmService = LLMService.shared
     let permissionManager = PermissionManager.shared
+    let captureExclusions = CaptureExclusions()
+    @Published private(set) var hasCompetingInstance = false
+    @Published private(set) var hotkeyUnavailable = false
+    @Published private(set) var captureApp: NSRunningApplication?
 
     // MARK: - HUD State
 
@@ -95,7 +99,11 @@ final class AppState: ObservableObject {
     /// mutates shared state (isProcessing, HUD, paste) while its own token is
     /// still current. Without this, a cancelled pipeline's teardown races the
     /// next one and two pastes can fire.
-    private var pipelineGeneration = 0
+    private var pipelineToken = PipelineToken()
+    @Published private(set) var practiceProgress: PracticeProgress = .idle
+    var practiceFieldFocused = false
+    private var expectedPracticeReply: String?
+    private var practiceGeneration: Int?
 
     // MARK: - Initialization
 
@@ -103,6 +111,8 @@ final class AppState: ObservableObject {
         LicenseService.shared.migrateFromUserDefaultsIfNeeded()
         setupHotkeySubscription()
         setupPermissionObserver()
+        setupWorkspaceObservers()
+        refreshCompetingInstances()
         updateState()
         computeTrialDaysRemaining()
 
@@ -115,6 +125,8 @@ final class AppState: ObservableObject {
         hudState.onCopyResponse = { [weak self] in
             self?.copyLastResponse()
         }
+        hudState.onScreenPermission = { [weak self] in self?.openScreenRecordingSettings() }
+        hudState.onAccessibilityPermission = { [weak self] in self?.openAccessibilitySettings() }
         hotkeyService.escapeInterceptor = { [weak self] in
             self?.isProcessing ?? false
         }
@@ -159,6 +171,10 @@ final class AppState: ObservableObject {
                 guard let self else { return }
                 let wasEnabled = self.accessibilityEnabled
                 self.accessibilityEnabled = enabled
+                if !enabled {
+                    self.hotkeyService.unregister()
+                    if self.isProcessing { self.cancelProcessing() }
+                }
                 if enabled && !wasEnabled && self.hotkeyService.isRegistered {
                     self.hotkeyService.reRegister()
                 } else if enabled {
@@ -170,12 +186,41 @@ final class AppState: ObservableObject {
 
         hotkeyService.$accessibilityPermissionDenied
             .receive(on: DispatchQueue.main)
-            .filter { $0 }
-            .sink { [weak self] _ in
-                self?.accessibilityEnabled = false
-                self?.updateMainWindowState()
-            }
+            .sink { [weak self] denied in self?.hotkeyUnavailable = denied }
             .store(in: &cancellables)
+
+    }
+
+    private func setupWorkspaceObservers() {
+        let center = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification,
+                     NSWorkspace.didActivateApplicationNotification, NSWorkspace.didWakeNotification] {
+            center.publisher(for: name)
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in
+                    self?.refreshCompetingInstances()
+                    self?.updateState()
+                }
+                .store(in: &cancellables)
+        }
+        center.publisher(for: NSWorkspace.willSleepNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.cancelProcessing() }
+            .store(in: &cancellables)
+    }
+
+    private func refreshCompetingInstances() {
+        let apps = NSWorkspace.shared.runningApplications
+        let family = ["com.superpaste.app", "com.superpaste.app.dev"]
+        hasCompetingInstance = apps.contains {
+            $0.processIdentifier != getpid() && family.contains($0.bundleIdentifier ?? "")
+        }
+        if hasCompetingInstance {
+            hotkeyService.unregister()
+            if isProcessing { cancelProcessing() }
+        }
+        if let front = NSWorkspace.shared.frontmostApplication,
+           !family.contains(front.bundleIdentifier ?? "") { captureApp = front }
     }
 
     // MARK: - State Management
@@ -191,7 +236,7 @@ final class AppState: ObservableObject {
     }
 
     private func refreshHotkeyRegistrationIfPossible() {
-        guard accessibilityEnabled, !isPaused, !hotkeyService.isRegistered else {
+        guard accessibilityEnabled, !hasCompetingInstance, !isPaused, !hotkeyService.isRegistered else {
             return
         }
         hotkeyService.register()
@@ -255,19 +300,19 @@ final class AppState: ObservableObject {
         guard !isPaused else { return }
 
         guard screenRecordingEnabled else {
-            hudState.showError("Screen Recording permission required \u{2014} open System Settings to enable.")
+            hudState.showError(.init(code: .screenPermission, message: "Screen Recording permission required.", recovery: .screenPermission))
             return
         }
 
         guard accessibilityEnabled else {
-            hudState.showError("Accessibility permission required \u{2014} open System Settings to enable.")
+            hudState.showError(.init(code: .accessibilityPermission, message: "Accessibility permission required.", recovery: .accessibilityPermission))
             return
         }
 
         computeTrialDaysRemaining()
 
         guard mainWindowState != .trialExpired else {
-            hudState.showError("Trial ended — subscribe or add your own API key in Settings")
+            hudState.showError(.provider(.trialExpired))
             return
         }
 
@@ -276,16 +321,26 @@ final class AppState: ObservableObject {
             return
         }
 
-        pipelineGeneration += 1
-        let generation = pipelineGeneration
+        let generation = pipelineToken.advance()
+        isProcessing = true
+        let destination = PasteDestination.current()
+        let clipboardCount = clipboardService.changeCount
+        let isPractice = practiceFieldFocused && NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
+        if isPractice {
+            practiceProgress = .hotkeyReceived
+            expectedPracticeReply = nil
+            practiceGeneration = generation
+        }
         processingTask = Task {
-            await processPipeline(generation: generation)
+            await processPipeline(generation: generation, destination: destination, clipboardCount: clipboardCount, isPractice: isPractice)
         }
     }
 
     /// Cancel the in-flight pipeline (Esc, HUD ✕, second hotkey press, pause).
     func cancelProcessing() {
-        pipelineGeneration += 1
+        _ = pipelineToken.advance()
+        expectedPracticeReply = nil
+        practiceGeneration = nil
         processingTask?.cancel()
         processingTask = nil
         isProcessing = false
@@ -300,7 +355,7 @@ final class AppState: ObservableObject {
 
     // MARK: - Processing Pipeline
 
-    private func processPipeline(generation: Int) async {
+    private func processPipeline(generation: Int, destination: PasteDestination?, clipboardCount: Int, isPractice: Bool) async {
         isProcessing = true
         lastError = nil
 
@@ -310,6 +365,10 @@ final class AppState: ObservableObject {
         guard isCurrent(generation) else { return }
 
         let frontApp = NSWorkspace.shared.frontmostApplication
+        if let id = frontApp?.bundleIdentifier, captureExclusions.contains(id) {
+            failPipeline(generation, message: "Capture is disabled for this app. Manage exclusions in Settings.")
+            return
+        }
         switch SensitiveContextGuard.check(
             bundleIdentifier: frontApp?.bundleIdentifier,
             appName: frontApp?.localizedName
@@ -324,7 +383,7 @@ final class AppState: ObservableObject {
             break
         }
 
-        let allowOwnWindow = !UserDefaults.standard.bool(forKey: "hasTriedOnce")
+        let allowOwnWindow = isPractice
         let context: ScreenCaptureService.CapturedContext
         do {
             context = try await screenCaptureService.capture(allowOwnWindow: allowOwnWindow)
@@ -337,6 +396,7 @@ final class AppState: ObservableObject {
         }
 
         guard isCurrent(generation) else { return }
+        if isPractice { practiceProgress = .captured }
         hudState.startThinking()
 
         do {
@@ -345,73 +405,81 @@ final class AppState: ObservableObject {
 
             lastResponse = response
 
-            let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            if let capturedPID = context.frontmostPID, currentPID != capturedPID {
-                clipboardService.write(response)
-                useCount += 1
-                UserDefaults.standard.set(true, forKey: "hasTriedOnce")
-                hudState.showError("Focus changed \u{2014} response copied. Press \u{2318}V to paste it.")
-                finishPipeline(generation)
-                return
-            }
-
+            if isPractice { practiceProgress = .generated }
             let previousClipboard = clipboardService.snapshotItems()
-            clipboardService.write(response)
-            let ourChangeCount = clipboardService.changeCount
-
-            try? await Task.sleep(for: .milliseconds(50))
-            guard isCurrent(generation) else {
-                if clipboardService.changeCount == ourChangeCount {
-                    clipboardService.restore(previousClipboard)
+            var expectedChangeCount = clipboardCount
+            let outcome = await PasteTransaction.run(
+                isCurrent: { self.isCurrent(generation) },
+                destinationMatches: {
+                    destination?.pid == context.frontmostPID && destination?.isStillFocused() == true
+                        && self.permissionManager.checkAccessibilityPermission()
+                },
+                clipboardMatches: { self.clipboardService.changeCount == expectedChangeCount },
+                prepareClipboard: {
+                    self.clipboardService.write(response)
+                    expectedChangeCount = self.clipboardService.changeCount
+                },
+                restoreClipboard: { self.clipboardService.restore(previousClipboard) },
+                paste: {
+                    if isPractice { self.expectedPracticeReply = response }
+                    return self.simulatePaste()
                 }
-                return
+            )
+            guard isCurrent(generation) else { return }
+            switch outcome {
+            case .pasted:
+                useCount += 1
+                if !isPractice { UserDefaults.standard.set(true, forKey: "hasTriedOnce") }
+                hudState.showReady()
+                restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: expectedChangeCount)
+            case .destinationChanged:
+                hudState.showError(.destinationChanged)
+            case .clipboardChanged:
+                hudState.showError(.init(code: .clipboardChanged, message: "Your clipboard changed. Your reply is ready to copy when you need it.", recovery: .copyResponse))
+            case .pasteUnavailable:
+                hudState.showError(.init(code: .pasteUnavailable, message: "Couldn't send the paste keystroke. Your reply is ready to copy.", recovery: .copyResponse))
+            case .cancelled:
+                break
             }
-            simulatePaste()
-
-            useCount += 1
-            UserDefaults.standard.set(true, forKey: "hasTriedOnce")
-            hudState.showReady()
-
-            restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: ourChangeCount)
+            if outcome != .pasted { expectedPracticeReply = nil }
 
         } catch LLMService.LLMError.trialExpired {
             guard isCurrent(generation) else { return }
             UserDefaults.standard.set(true, forKey: "trialExpiredLocally")
             updateMainWindowState()
-            hudState.showError("Trial ended \u{2014} subscribe or add your own API key in Settings")
+            hudState.showError(.provider(.trialExpired))
 
         } catch let error as LLMService.LLMError {
             guard isCurrent(generation) else { return }
             lastError = error.errorDescription
-            hudState.showError(error.userFriendlyMessage)
+            hudState.showError(.provider(error))
 
         } catch {
             guard isCurrent(generation) else { return }
             lastError = error.localizedDescription
-            hudState.showError(error.localizedDescription)
+            hudState.showError(.init(code: .unknown, message: "Couldn’t complete the request. Try again.", recovery: .retry))
         }
 
         finishPipeline(generation)
     }
 
     private func isCurrent(_ generation: Int) -> Bool {
-        generation == pipelineGeneration && !Task.isCancelled
+        pipelineToken.accepts(generation) && !Task.isCancelled
     }
 
     private func failPipeline(_ generation: Int, message: String) {
         guard isCurrent(generation) else { return }
         lastError = message
-        hudState.showError(message)
+        hudState.showError(.init(code: .capture, message: message, recovery: nil))
         finishPipeline(generation)
     }
 
     private func finishPipeline(_ generation: Int) {
-        guard generation == pipelineGeneration else { return }
+        guard pipelineToken.accepts(generation) else { return }
         isProcessing = false
     }
 
     private func restoreClipboardLater(_ previous: [NSPasteboardItem], ifChangeCountStillEquals changeCount: Int) {
-        guard !previous.isEmpty else { return }
         Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(1500))
             guard let self else { return }
@@ -436,15 +504,24 @@ final class AppState: ObservableObject {
 
     // MARK: - Auto-Paste
 
-    private func simulatePaste() {
+    private func simulatePaste() -> Bool {
         let src = CGEventSource(stateID: .hidSystemState)
         let vKey = KeyboardLayout.vKeyCode
-        let vDown = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: true)
-        let vUp   = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: false)
-        vDown?.flags = .maskCommand
-        vUp?.flags   = .maskCommand
-        vDown?.post(tap: .cghidEventTap)
-        vUp?.post(tap: .cghidEventTap)
+        guard let vDown = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: true),
+              let vUp = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: false) else { return false }
+        vDown.flags = .maskCommand
+        vUp.flags   = .maskCommand
+        vDown.post(tap: .cghidEventTap)
+        vUp.post(tap: .cghidEventTap)
+        return true
+    }
+
+    func observePracticeReply(_ text: String) {
+        guard let expectedPracticeReply, let generation = practiceGeneration,
+              pipelineToken.accepts(generation), practiceFieldFocused,
+              text.contains(expectedPracticeReply) else { return }
+        practiceProgress = .inserted
+        self.expectedPracticeReply = nil
     }
 
     // MARK: - Manual Actions

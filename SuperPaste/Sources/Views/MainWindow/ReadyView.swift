@@ -7,6 +7,12 @@ struct ReadyView: View {
     @ObservedObject private var updateController = UpdateController.shared
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hasTriedOnce") private var hasTriedOnce = false
+    @StateObject private var cardState: ReadyCardState
+
+    init() {
+        let hasTriedOnce = _hasTriedOnce.wrappedValue
+        _cardState = StateObject(wrappedValue: ReadyCardState(hasTriedOnce: hasTriedOnce))
+    }
 
     private let tips = [
         "Works in any app — email, Slack, code editors, forms, documents.",
@@ -32,7 +38,7 @@ struct ReadyView: View {
                 Divider()
             }
 
-            if !hasTriedOnce {
+            if !cardState.showReturningCard {
                 firstUseSection.padding(24)
             } else {
                 returningUserSection.padding(24)
@@ -46,9 +52,7 @@ struct ReadyView: View {
         }
         .frame(width: 400)
         .background(Color(nsColor: .windowBackgroundColor))
-        .onReceive(appState.$isProcessing) { processing in
-            if !processing && appState.useCount > 0 { hasTriedOnce = true }
-        }
+
     }
 
     // MARK: - Header
@@ -112,26 +116,27 @@ struct ReadyView: View {
                     .lineLimit(2...5)
                     .focused($practiceFieldFocused)
                     .accessibilityLabel("Practice reply field")
+                    .onChange(of: practiceFieldFocused) { _, focused in appState.practiceFieldFocused = focused }
+                    .onChange(of: practiceReply) { _, text in appState.observePracticeReply(text) }
+                    .onDisappear { appState.practiceFieldFocused = false }
 
-                if practiceReply.isEmpty {
-                    Text("SuperPaste reads this window and writes the reply into the field — exactly what it does in your real apps.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
-                        Text("That's it. Now try it in any app.")
-                            .font(.caption.weight(.medium))
-                            .foregroundColor(.green)
+                Text(appState.practiceProgress.rawValue)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                if appState.practiceProgress == .inserted {
+                    Button("Try it in my apps") {
+                        cardState.continueToApps(progress: appState.practiceProgress)
+                        hasTriedOnce = true
                     }
+                    .buttonStyle(.borderedProminent)
                 }
+
             }
             .padding(16)
             .background(RoundedRectangle(cornerRadius: 10).fill(Color.blue.opacity(0.05)))
             .overlay(RoundedRectangle(cornerRadius: 10).stroke(Color.blue.opacity(0.2), lineWidth: 1))
             hotkeyVisual
-            availabilityNote
+            if appState.practiceProgress == .inserted { availabilityNote }
         }
     }
 
@@ -254,11 +259,13 @@ struct ReadyView: View {
     private var footerSection: some View {
         VStack(spacing: 8) {
             HStack {
+                if cardState.showReturningCard || appState.practiceProgress == .inserted {
                 Toggle("Launch at login", isOn: $launchAtLogin)
                     .toggleStyle(.checkbox)
                     .onChange(of: launchAtLogin) { _, newValue in
                         appState.setLaunchAtLogin(newValue)
                     }
+                }
                 Spacer()
                 Button {
                     // The legacy showSettingsWindow: selector is dead on

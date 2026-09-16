@@ -52,7 +52,9 @@ cd superpaste
 ./build.sh
 ```
 
-The result lands at `SuperPaste.app` in the repo root. Drag it to `/Applications` if you want it there.
+The result lands at `SuperPaste Dev.app` in the repo root. It has a separate bundle identity and preferences from the signed release, so development builds cannot replace the release's macOS permission grants. Grant permissions to **SuperPaste Dev** once. Development builds require the stable certificate from `./setup_codesign.sh` and do not install release updates.
+
+Use the signed **SuperPaste** release for everyday use. Quit one before using the other: both register the same default hotkey. If you have an older local `SuperPaste.app` in the repo root, stop using that copy; it shares the release's bundle ID but has a different signing identity.
 
 The first time you launch SuperPaste it will:
 1. Ask for Screen Recording permission so it can capture the active window on demand
@@ -83,6 +85,8 @@ To replay onboarding without touching macOS permission grants:
 ```bash
 ./build.sh --fresh
 ```
+
+The build, reset, doctor, and probe scripts target **SuperPaste Dev** by default, leaving the release's preferences and permissions alone. `--fresh-permissions` deliberately resets only the development app's macOS grants. To check development bundle isolation after building, run `./scripts/test-dev-bundle.sh`.
 
 To replay the full first-run permission flow:
 

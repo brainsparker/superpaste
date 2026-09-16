@@ -10,6 +10,9 @@ struct MenuBarView: View {
         Group {
             statusSection
 
+            LastFailureMenu(hudState: appState.hudState)
+            CaptureExclusionMenu(store: appState.captureExclusions, app: appState.captureApp)
+
             Divider()
 
             Button(appState.isPaused ? "Resume SuperPaste" : "Pause SuperPaste") {
@@ -53,7 +56,13 @@ struct MenuBarView: View {
 
     @ViewBuilder
     private var statusSection: some View {
-        if appState.isPaused {
+        if appState.hasCompetingInstance {
+            Text("Another SuperPaste is running — quit one copy")
+        } else if !appState.screenRecordingEnabled || !appState.accessibilityEnabled {
+            Text("Setup required — check permissions")
+        } else if appState.hotkeyUnavailable {
+            Text("Hotkey unavailable — open Diagnostics")
+        } else if appState.isPaused {
             Text("Paused — hotkey released")
         } else if appState.isProcessing {
             Text("Working…")
@@ -65,6 +74,30 @@ struct MenuBarView: View {
             Text("Trial: \(days) day\(days == 1 ? "" : "s") left — \(HotkeyPreset.current.shortName)")
         } else {
             Text("Ready — \(HotkeyPreset.current.shortName)")
+        }
+    }
+}
+private struct LastFailureMenu: View {
+    @ObservedObject var hudState: HUDState
+
+    var body: some View {
+        if let failure = hudState.lastFailure {
+            Button("Show Last Issue…") {
+                hudState.showError(failure)
+            }
+        }
+    }
+}
+
+private struct CaptureExclusionMenu: View {
+    @ObservedObject var store: CaptureExclusions
+    let app: NSRunningApplication?
+
+    var body: some View {
+        if let id = app?.bundleIdentifier {
+            Button(store.contains(id) ? "Allow capture in \(app?.localizedName ?? id)" : "Never capture \(app?.localizedName ?? id)") {
+                store.setExcluded(!store.contains(id), bundleID: id)
+            }
         }
     }
 }

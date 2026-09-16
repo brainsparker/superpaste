@@ -2,8 +2,8 @@
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE_INFO_PLIST="$REPO/SuperPaste/Resources/Info.plist"
-APP="${SUPERPASTE_APP_PATH:-$REPO/SuperPaste.app}"
+source "$REPO/scripts/dev-config.sh"
+APP="${SUPERPASTE_APP_PATH:-$DEV_APP}"
 CERT_NAME="${SUPERPASTE_CERT_NAME:-SuperPaste Developer}"
 
 usage() {
@@ -13,7 +13,7 @@ Usage: ./bin/permissions-doctor.sh
 Checks the local SuperPaste permission testing setup without resetting macOS TCC.
 
 Environment:
-  SUPERPASTE_APP_PATH   Built app path to inspect. Defaults to ./SuperPaste.app.
+  SUPERPASTE_APP_PATH   Built app path to inspect. Defaults to ./SuperPaste Dev.app.
   SUPERPASTE_CERT_NAME  Signing identity to expect. Defaults to "SuperPaste Developer".
 EOF
 }
@@ -33,8 +33,8 @@ section() {
     echo "----------------------------------------"
 }
 
-SOURCE_BUNDLE_ID="$(plist_value "$SOURCE_INFO_PLIST" CFBundleIdentifier)"
-SOURCE_NAME="$(plist_value "$SOURCE_INFO_PLIST" CFBundleName)"
+SOURCE_BUNDLE_ID="$DEV_BUNDLE_ID"
+SOURCE_NAME="$DEV_APP_NAME"
 
 section "Bundle"
 echo "Source bundle id: ${SOURCE_BUNDLE_ID:-unknown}"
@@ -88,7 +88,7 @@ if [[ -z "$SOURCE_BUNDLE_ID" ]]; then
     echo "Skipped: source bundle id not found."
 else
     for key in hasSeenWelcome hasTriedOnce useCount launchAtLogin trialExpiredLocally trialStartDate; do
-        if value="$(defaults read "$SOURCE_BUNDLE_ID" "$key" 2>/dev/null)"; then
+        if value="$(defaults read "${APP_BUNDLE_ID:-$SOURCE_BUNDLE_ID}" "$key" 2>/dev/null)"; then
             echo "$key=$value"
         else
             echo "$key=(unset)"

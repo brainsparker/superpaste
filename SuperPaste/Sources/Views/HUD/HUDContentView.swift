@@ -209,6 +209,10 @@ struct HUDContentView: View {
 
     private func perform(_ action: HUDRecoveryAction) {
         switch action {
+        case .screenPermission:
+            hudState.onScreenPermission?()
+        case .accessibilityPermission:
+            hudState.onAccessibilityPermission?()
         case .openSettings:
             hudState.dismiss()
             hudState.onOpenSettings?()

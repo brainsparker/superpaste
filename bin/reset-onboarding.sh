@@ -1,8 +1,10 @@
 #!/bin/bash
 set -euo pipefail
 
-BUNDLE_ID="${SUPERPASTE_BUNDLE_ID:-com.superpaste.app}"
-APP_NAME="${SUPERPASTE_APP_NAME:-SuperPaste}"
+REPO="$(cd "$(dirname "$0")/.." && pwd)"
+source "$REPO/scripts/dev-config.sh"
+BUNDLE_ID="${SUPERPASTE_BUNDLE_ID:-$DEV_BUNDLE_ID}"
+APP_NAME="${SUPERPASTE_APP_NAME:-$DEV_EXECUTABLE}"
 RESET_TCC=false
 
 usage() {

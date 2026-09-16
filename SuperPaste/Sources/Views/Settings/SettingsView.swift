@@ -7,6 +7,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case permissions = "Permissions"
     case general = "General"
     case help = "Help"
+    case diagnostics = "Diagnostics"
 
     var id: String { rawValue }
 
@@ -16,6 +17,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .quickStart: return "sparkles"
         case .permissions: return "lock.shield"
         case .general: return "gear"
+        case .diagnostics: return "stethoscope"
         case .help: return "questionmark.circle"
         }
     }
@@ -57,6 +59,9 @@ struct SettingsView: View {
                     .environmentObject(appState)
             case .general:
                 SettingsPage()
+                    .environmentObject(appState)
+            case .diagnostics:
+                DiagnosticsPage()
                     .environmentObject(appState)
             case .help:
                 ResourcesPage()

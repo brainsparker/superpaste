@@ -49,7 +49,7 @@ struct WelcomeView: View {
                 .font(.subheadline.weight(.medium))
                 .foregroundColor(.secondary)
 
-            Text("No copying. No prompting. Just press \u{2325}V.")
+            Text("No copying. No prompting. Just press \(HotkeyPreset.current.shortName).")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
         }
@@ -116,7 +116,7 @@ struct WelcomeView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Takes about 30 seconds to set up")
+            Text("Two one-time permissions, then a practice paste")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
