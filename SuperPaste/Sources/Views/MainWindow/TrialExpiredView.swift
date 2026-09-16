@@ -74,7 +74,7 @@ struct TrialExpiredView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Prefer not to subscribe? Add your own Anthropic API key in Settings and SuperPaste stays free forever.")
+            Text("Prefer not to subscribe? Add your own API key in Settings and SuperPaste stays free forever. Choose from Anthropic, OpenAI, OpenRouter, or a custom endpoint.")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

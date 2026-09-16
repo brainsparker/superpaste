@@ -41,14 +41,17 @@ final class AppState: ObservableObject {
     /// Whether to offer a relaunch after Screen Recording was requested but is not usable yet.
     @Published private(set) var shouldOfferPermissionRelaunch = false
 
-    /// Days remaining in free trial. nil when licensed (no badge shown).
+    /// Days remaining in free trial. nil when licensed or using own key (no badge shown).
     @Published private(set) var trialDaysRemaining: Int? = nil
 
     /// Whether a valid license is stored locally (Keychain). Drives UI in Settings.
     @Published private(set) var isLicensed: Bool = LicenseService.shared.hasLocalLicense
 
-    /// Whether a user-supplied Anthropic API key is active (bring-your-own-key mode).
-    @Published private(set) var usingOwnAPIKey: Bool = UserAPIKey.current != nil
+    /// Whether any bring-your-own-key provider is active.
+    @Published private(set) var usingOwnAPIKey: Bool = UserCredentialStore.anyKeyActive
+
+    /// Which provider is currently configured.
+    @Published private(set) var providerConfig: LLMProviderConfig = LLMService.currentConfig()
 
     /// Activation status shown in TrialExpiredView / Settings
     @Published var licenseActivationState: LicenseActivationState = .idle
@@ -157,8 +160,6 @@ final class AppState: ObservableObject {
                 let wasEnabled = self.accessibilityEnabled
                 self.accessibilityEnabled = enabled
                 if enabled && !wasEnabled && self.hotkeyService.isRegistered {
-                    // Revoke + re-grant leaves the old tap dead while
-                    // isRegistered stays true — rebuild it.
                     self.hotkeyService.reRegister()
                 } else if enabled {
                     self.refreshHotkeyRegistrationIfPossible()
@@ -167,8 +168,6 @@ final class AppState: ObservableObject {
             }
             .store(in: &cancellables)
 
-        // If CGEvent tap creation fails, AXIsProcessTrusted() lied to us —
-        // force back to accessibilityRequired so the user can re-grant it.
         hotkeyService.$accessibilityPermissionDenied
             .receive(on: DispatchQueue.main)
             .filter { $0 }
@@ -195,7 +194,6 @@ final class AppState: ObservableObject {
         guard accessibilityEnabled, !isPaused, !hotkeyService.isRegistered else {
             return
         }
-
         hotkeyService.register()
     }
 
@@ -214,14 +212,13 @@ final class AppState: ObservableObject {
     }
 
     private func computeTrialDaysRemaining() {
-        // Keep isLicensed in sync with the underlying Keychain state
         isLicensed = LicenseService.shared.hasLocalLicense
+        usingOwnAPIKey = UserCredentialStore.anyKeyActive
 
         if isLicensed || usingOwnAPIKey {
             trialDaysRemaining = nil
             return
         }
-        // Use local trial start date for display purposes (server enforces actual expiry)
         let trialStartKey = "trialStartDate"
         if UserDefaults.standard.object(forKey: trialStartKey) == nil {
             UserDefaults.standard.set(Date(), forKey: trialStartKey)
@@ -235,7 +232,6 @@ final class AppState: ObservableObject {
         trialDaysRemaining = remaining
     }
 
-    /// Mark the welcome screen as seen and advance to next state
     func dismissWelcome() {
         hasSeenWelcome = true
         updateMainWindowState()
@@ -268,7 +264,6 @@ final class AppState: ObservableObject {
             return
         }
 
-        // Keep the trial badge honest even if the app has been running for days.
         computeTrialDaysRemaining()
 
         guard mainWindowState != .trialExpired else {
@@ -276,8 +271,6 @@ final class AppState: ObservableObject {
             return
         }
 
-        // Second press = cancel. Restarting on a fat-fingered double press
-        // would double the wait AND the request cost.
         if isProcessing {
             cancelProcessing()
             return
@@ -299,8 +292,7 @@ final class AppState: ObservableObject {
         hudState.dismiss()
     }
 
-    /// Show the status bubble without taking a screenshot or making an AI
-    /// request. Used by the General settings placement control.
+    /// Show the status bubble without taking a screenshot or making an AI request.
     func previewHUD() {
         guard !isProcessing else { return }
         hudState.preview()
@@ -317,8 +309,6 @@ final class AppState: ObservableObject {
         try? await Task.sleep(for: .milliseconds(100))
         guard isCurrent(generation) else { return }
 
-        // Never capture password managers or anything focused on a secure
-        // input field — the privacy promise has to hold at the worst moment.
         let frontApp = NSWorkspace.shared.frontmostApplication
         switch SensitiveContextGuard.check(
             bundleIdentifier: frontApp?.bundleIdentifier,
@@ -334,8 +324,6 @@ final class AppState: ObservableObject {
             break
         }
 
-        // The in-app practice moment needs to capture SuperPaste's own window;
-        // everywhere else our own windows are excluded from capture.
         let allowOwnWindow = !UserDefaults.standard.bool(forKey: "hasTriedOnce")
         let context: ScreenCaptureService.CapturedContext
         do {
@@ -357,8 +345,6 @@ final class AppState: ObservableObject {
 
             lastResponse = response
 
-            // If the user switched apps during the round trip, a synthetic ⌘V
-            // would paste AI text into whatever is focused NOW. Don't.
             let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
             if let capturedPID = context.frontmostPID, currentPID != capturedPID {
                 clipboardService.write(response)
@@ -375,8 +361,6 @@ final class AppState: ObservableObject {
 
             try? await Task.sleep(for: .milliseconds(50))
             guard isCurrent(generation) else {
-                // Cancelled between the clipboard write and the paste: nothing
-                // was pasted, so hand the clipboard straight back.
                 if clipboardService.changeCount == ourChangeCount {
                     clipboardService.restore(previousClipboard)
                 }
@@ -385,13 +369,9 @@ final class AppState: ObservableObject {
             simulatePaste()
 
             useCount += 1
-            // Ends the onboarding practice moment and, with it, permission to
-            // capture SuperPaste's own window.
             UserDefaults.standard.set(true, forKey: "hasTriedOnce")
             hudState.showReady()
 
-            // Give the target app time to service the paste, then hand the
-            // clipboard back — a paste tool must not eat what the user copied.
             restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: ourChangeCount)
 
         } catch LLMService.LLMError.trialExpired {
@@ -414,13 +394,8 @@ final class AppState: ObservableObject {
         finishPipeline(generation)
     }
 
-    /// True while this pipeline run is still the active one.
     private func isCurrent(_ generation: Int) -> Bool {
-        if generation != pipelineGeneration || Task.isCancelled {
-            // A newer run owns the shared state now; don't touch it.
-            return false
-        }
-        return true
+        generation == pipelineGeneration && !Task.isCancelled
     }
 
     private func failPipeline(_ generation: Int, message: String) {
@@ -438,13 +413,8 @@ final class AppState: ObservableObject {
     private func restoreClipboardLater(_ previous: [NSPasteboardItem], ifChangeCountStillEquals changeCount: Int) {
         guard !previous.isEmpty else { return }
         Task { [weak self] in
-            // Generous delay: a busy app may service the synthetic ⌘V well
-            // after it was posted, and pasting the OLD clipboard into the
-            // reply field would be far worse than a late restore.
             try? await Task.sleep(for: .milliseconds(1500))
             guard let self else { return }
-            // Only restore if nothing else (including the user) wrote to the
-            // clipboard since our paste.
             if self.clipboardService.changeCount == changeCount {
                 self.clipboardService.restore(previous)
             }
@@ -468,8 +438,6 @@ final class AppState: ObservableObject {
 
     private func simulatePaste() {
         let src = CGEventSource(stateID: .hidSystemState)
-        // Resolve the key that actually types "v" on the current layout —
-        // key code 9 is only "v" on ANSI QWERTY.
         let vKey = KeyboardLayout.vKeyCode
         let vDown = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: true)
         let vUp   = CGEvent(keyboardEventSource: src, virtualKey: vKey, keyDown: false)
@@ -494,6 +462,8 @@ final class AppState: ObservableObject {
         guard !isProcessing else { return }
         handleHotkeyTrigger()
     }
+
+    // MARK: - License
 
     func activateLicense(_ key: String) {
         let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -524,15 +494,18 @@ final class AppState: ObservableObject {
         updateMainWindowState()
     }
 
-    // MARK: - Bring-your-own-key
+    // MARK: - Provider configuration
 
-    func setUserAPIKey(_ key: String) {
+    func setProviderConfig(_ config: LLMProviderConfig) {
+        providerConfig = config
+        LLMService.saveConfig(config)
+        computeTrialDaysRemaining()
+        updateMainWindowState()
+    }
+
+    func setAPIKey(_ key: String, for provider: LLMProviderID) {
         do {
-            try UserAPIKey.set(key)
-            usingOwnAPIKey = UserAPIKey.current != nil
-            if usingOwnAPIKey {
-                UserDefaults.standard.removeObject(forKey: "trialExpiredLocally")
-            }
+            try UserCredentialStore.set(apiKey: key, for: provider)
             computeTrialDaysRemaining()
             updateMainWindowState()
         } catch {
@@ -540,9 +513,8 @@ final class AppState: ObservableObject {
         }
     }
 
-    func clearUserAPIKey() {
-        UserAPIKey.clear()
-        usingOwnAPIKey = false
+    func clearAPIKey(for provider: LLMProviderID) {
+        UserCredentialStore.clear(for: provider)
         computeTrialDaysRemaining()
         updateMainWindowState()
     }
@@ -566,7 +538,6 @@ final class AppState: ObservableObject {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         task.arguments = ["-n", Bundle.main.bundleURL.path]
-
         do {
             try task.run()
             NSApp.terminate(nil)
@@ -591,7 +562,6 @@ final class AppState: ObservableObject {
             lastError = enabled
                 ? "Couldn't enable launch at login."
                 : "Couldn't disable launch at login."
-            print("Failed to update launch at login: \(error)")
         }
     }
 }

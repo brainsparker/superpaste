@@ -1,5 +1,23 @@
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# SwiftPM build artifacts
+.build/
+.swiftpm/
+
+# Xcode user data
+*.xcuserdata
+*.xcuserstate
+
+# Node
 node_modules/
 .dev.vars
 dist/
+
+# App output
 SuperPaste.app/
+
+# Wrangler
 server/.wrangler/

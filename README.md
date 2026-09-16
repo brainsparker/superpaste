@@ -6,7 +6,9 @@ SuperPaste is a small native macOS app that captures only the active window when
 
 It is fully open source under the MIT license. The hosted service is a **$5/month subscription** (cancel anytime) that covers Claude usage — up to **100 AI responses per day** — plus the signed/notarized DMG and in-app update checks. New installs get a **7-day free trial**: no card required, limited to 15 responses/day.
 
-Don't want to subscribe? Enable **Settings → "Use your own Anthropic API key"** and SuperPaste is genuinely free — it works in the paid build and in builds you compile from source, sending screenshots straight from your Mac to Anthropic. No telemetry either way.
+**Don't want to subscribe? Bring your own API key** — Anthropic, OpenAI, or OpenRouter — and SuperPaste is genuinely free. It works in the paid build and in builds you compile from source, sending screenshots straight from your Mac to your chosen provider. No telemetry either way.
+
+You can also point SuperPaste at **any OpenAI-compatible endpoint**, including local models (Ollama, LM Studio, vLLM).
 
 ---
 
@@ -15,14 +17,14 @@ Don't want to subscribe? Enable **Settings → "Use your own Anthropic API key"*
 1. You place your cursor in any text field.
 2. You press **Option+V**.
 3. SuperPaste captures the active window context.
-4. The backend writes the appropriate response — a Slack reply, an email, the next line of code, an answer to a question.
+4. Your chosen AI provider generates the appropriate response — a Slack reply, an email, the next line of code, an answer to a question.
 5. SuperPaste writes the result to the clipboard and synthesizes a `⌘V` to paste it where your cursor is.
 
 ## Requirements
 
 - **macOS 14** or later
 - **Swift toolchain** for building from source
-- **Internet access** for the SuperPaste backend request
+- **Internet access** for the AI provider request (except local models)
 
 ## Install
 
@@ -32,7 +34,7 @@ Download the signed/notarized DMG and drag SuperPaste to Applications — macOS 
 
 → [Download SuperPaste.dmg](https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg)
 
-Even in the paid build, **Settings → "Use your own Anthropic API key"** switches to your own Anthropic account and makes SuperPaste free — no subscription needed.
+Even in the paid build, **Settings → AI Provider** lets you switch to your own API key (Anthropic, OpenAI, OpenRouter, or custom) and SuperPaste stays free — no subscription needed.
 
 ### From source (free)
 
@@ -99,7 +101,7 @@ The reset command is also available directly:
 ## Privacy
 
 - SuperPaste captures one active-window screenshot only when you press Option+V.
-- The screenshot is sent to the SuperPaste backend for generation and immediately discarded after processing. In bring-your-own-key mode it goes directly from your Mac to Anthropic — the SuperPaste backend never sees it.
+- The screenshot is sent to your chosen AI provider for generation and immediately discarded after processing. With the hosted plan it goes through the SuperPaste backend; with a bring-your-own-key it goes directly from your Mac to the provider — the SuperPaste backend never sees it.
 - Accessibility is used for the global hotkey and the final `⌘V` paste.
 - No analytics, no telemetry, no crash reporting. If something goes wrong, please file an issue.
 
@@ -108,9 +110,10 @@ Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https:/
 ## Architecture
 
 - **Swift / SwiftUI** native macOS app, built with SwiftPM
-- **Cloudflare Worker** backend proxy for model requests
+- **Cloudflare Worker** backend proxy for model requests (hosted plan only)
 - **CGEvent** tap for the hotkey, **NSPasteboard** + synthesized `⌘V` for the paste
 - **Sparkle 2** for signed, automatic in-app updates
+- **Provider-agnostic LLM layer** — OpenAI-compatible, Anthropic, and custom endpoints
 
 ## Contributing
 

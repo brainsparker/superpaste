@@ -878,10 +878,10 @@
 
   <!-- Hero -->
   <div class="hero">
-    <div class="hero-eyebrow">Mac only &nbsp;·&nbsp; Powered by Claude AI</div>
+    <div class="hero-eyebrow">Mac only &nbsp;·&nbsp; Your choice of AI provider</div>
     <h1><span>Press Option V.<br>Text appears.</span></h1>
     <p class="hero-sub">
-      SuperPaste uses your active window to write for you. Place your cursor anywhere — email, Slack, a form, code — and the right text shows up instantly.
+      SuperPaste uses your active window to write for you. Place your cursor anywhere — email, Slack, a form, code — and the right text shows up instantly. Powered by Claude, GPT-4o, or any model you choose.
     </p>
     <div class="hero-actions">
       <a class="btn btn-primary btn-large" href="#download">Download for Mac</a>
@@ -930,7 +930,7 @@
       <div class="step">
         <div class="step-num">2</div>
         <h3>Press Option V</h3>
-        <p>SuperPaste takes a single screenshot of your active window and sends it to Claude over an encrypted connection. A subtle indicator shows it's working.</p>
+        <p>SuperPaste takes a single screenshot of your active window and sends it to your chosen AI provider over an encrypted connection. A subtle indicator shows it's working.</p>
       </div>
       <div class="step">
         <div class="step-num">3</div>
@@ -1061,7 +1061,7 @@
         </div>
         <div class="oss-point">
           <h3>Bring your own API key, free.</h3>
-          <p>Flip on Settings → "Use your own Anthropic API key" and SuperPaste is free forever — you pay Anthropic directly for what you use. Works in the official download and in builds you compile from source.</p>
+          <p>Flip on Settings → "Use your own API key" and SuperPaste is free forever — you pay your provider directly for what you use. Works in the official download and in builds you compile from source.</p>
         </div>
         <div class="oss-point">
           <h3>Or pay $5/month and skip the setup.</h3>
@@ -1115,7 +1115,7 @@ Building SuperPaste…
       <p class="pricing-trial">7 days free, 15 responses/day during the trial &nbsp;·&nbsp; No credit card to start</p>
     </div>
 
-    <p class="pricing-oss">Prefer not to subscribe? Turn on Settings → "Use your own Anthropic API key" and SuperPaste is free forever — in the official app or a build you <a href="#open-source">compile from source</a>.</p>
+    <p class="pricing-oss">Prefer not to subscribe? Turn on Settings → "Use your own API key" and SuperPaste is free forever — in the official app or a build you <a href="#open-source">compile from source</a>.</p>
   </section>
 
   <!-- FAQ -->
@@ -1134,7 +1134,7 @@ Building SuperPaste…
       </details>
       <details class="faq-item">
         <summary>Is my screen data stored anywhere?</summary>
-        <p>SuperPaste never stores, logs, or trains on your screenshots or responses. Each screenshot is sent over an encrypted connection, used to generate one response, and discarded. Anthropic processes it under its API data policies (retained up to 30 days for abuse monitoring, not used for training). Full details in the <a href="/privacy" style="color: var(--text-2);">privacy policy</a>.</p>
+        <p>SuperPaste never stores, logs, or trains on your screenshots or responses. Each screenshot is sent over an encrypted connection, used to generate one response, and discarded. Your provider processes it under their API data policies. See each provider's data policy for details. Full details in the <a href="/privacy" style="color: var(--text-2);">privacy policy</a>.</p>
       </details>
       <details class="faq-item">
         <summary>Which apps does it work in?</summary>
@@ -1146,13 +1146,17 @@ Building SuperPaste…
       </details>
       <details class="faq-item">
         <summary>Does it work offline?</summary>
-        <p>No — it needs Claude to think. Offline, pressing ⌥V simply does nothing; you'll see a quiet error and your screen goes nowhere.</p>
+        <p>No — it needs an AI provider to generate the response. Offline, pressing ⌥V simply does nothing; you'll see a quiet error and your screen goes nowhere.</p>
       </details>
       <details class="faq-item">
         <summary>What happens after the 7-day trial?</summary>
-        <p>Generation pauses until you subscribe — $5/month, cancel anytime, with 100 responses a day. Nothing is auto-charged; the trial needs no card. Or add your own Anthropic API key in Settings and keep using SuperPaste free.</p>
+        <p>Generation pauses until you subscribe — $5/month, cancel anytime, with 100 responses a day. Nothing is auto-charged; the trial needs no card. Or add your own API key in Settings and keep using SuperPaste free.</p>
       </details>
       <details class="faq-item">
+      <details class="faq-item">
+        <summary>Which AI providers does SuperPaste support?</summary>
+        <p>SuperPaste works with any provider you bring. Use the hosted SuperPaste plan (powered by Claude), bring your own Anthropic, OpenAI, or OpenRouter key, or point it at any OpenAI-compatible endpoint - including local models via Ollama, LM Studio, or vLLM. Switch freely in Settings without losing your stored keys.</p>
+      </details>
         <summary>Is it really open source?</summary>
         <p>Yes — MIT licensed, with the full source at <a href="https://github.com/brainsparker/superpaste" style="color: var(--text-2);">github.com/brainsparker/superpaste</a>, including both the app and the server.</p>
       </details>

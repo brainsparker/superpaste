@@ -119,4 +119,4 @@ final class LicenseService {
     }
 }
 
-// Keychain wrapper lives in Sources/Utilities/Keychain.swift (shared with UserAPIKey).
+// Keychain wrapper lives in Sources/Utilities/Keychain.swift (shared with UserCredentialStore).

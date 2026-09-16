@@ -10,10 +10,13 @@ struct SettingsPage: View {
     @AppStorage("personalContext") private var personalContext = ""
     @AppStorage("responseTone") private var responseTone: ResponseTone = .matchContext
     @AppStorage("responseLength") private var responseLength: ResponseLength = .balanced
-
     @AppStorage("hotkeyPreset") private var hotkeyPreset: HotkeyPreset = .optionV
+
     @State private var licenseKeyInput = ""
-    @State private var apiKeyInput = ""
+    @State private var selectedProvider: LLMProviderID = LLMService.currentConfig().provider
+    @State private var customModelInput: String = LLMService.currentConfig().model
+    @State private var customEndpointInput: String = LLMService.currentConfig().customEndpoint
+    @State private var apiKeyInput: String = ""
     @State private var isAdvancedExpanded = false
 
     var body: some View {
@@ -22,8 +25,6 @@ struct SettingsPage: View {
                 Text("General")
                     .font(.title2.bold())
 
-                // Personalization is the common path. Account and API plumbing
-                // live lower in the hierarchy.
                 aboutYouSection
 
                 responseBehaviorSection
@@ -40,11 +41,144 @@ struct SettingsPage: View {
 
                 licenseSection
 
-                advancedSection
+                Divider()
+
+                aiProviderSection
             }
             .padding(24)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onChange(of: selectedProvider) { _, newProvider in
+            saveProviderChange(provider: newProvider)
+        }
+    }
+
+    // MARK: - AI Provider Section
+
+    private var aiProviderSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("AI Provider")
+                .font(.headline)
+
+            Text("Choose which AI service powers your pastes. You can use the hosted SuperPaste backend, your own API key from Anthropic, OpenAI, or OpenRouter, or a custom OpenAI-compatible endpoint.")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Provider picker
+            Picker("Provider", selection: $selectedProvider) {
+                ForEach(LLMProviderID.allCases) { provider in
+                    HStack {
+                        Text(provider.displayName)
+                    }.tag(provider)
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+
+            // Provider description
+            Text(selectedProvider.description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // Model field (hidden for superpaste)
+            if selectedProvider.supportsCustomModel {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Model")
+                        .font(.subheadline.weight(.medium))
+                    TextField("Model identifier", text: $customModelInput)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: customModelInput) { _, newValue in
+                            saveProviderChange(provider: selectedProvider)
+                        }
+                    Text(selectedProvider == .custom
+                        ? "e.g. gpt-4o, claude-sonnet-4, gemini-2.5-flash"
+                        : "Leave empty for the default. e.g. \(selectedProvider.defaultModel)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            // Custom endpoint (only for "custom")
+            if selectedProvider == .custom {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("API Endpoint")
+                        .font(.subheadline.weight(.medium))
+                    TextField("https://your-endpoint.com/v1/chat/completions", text: $customEndpointInput)
+                        .textFieldStyle(.roundedBorder)
+                        .onChange(of: customEndpointInput) { _, newValue in
+                            saveProviderChange(provider: selectedProvider)
+                        }
+                }
+            }
+
+            // API key section per provider
+            apiKeyField(for: selectedProvider)
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(nsColor: .controlBackgroundColor))
+        )
+    }
+
+    @ViewBuilder
+    private func apiKeyField(for provider: LLMProviderID) -> some View {
+        if provider.isBringYourOwnKey {
+            let hasKey = UserCredentialStore.apiKey(for: provider) != nil
+            VStack(alignment: .leading, spacing: 8) {
+                if hasKey {
+                    HStack(spacing: 8) {
+                        Image(systemName: "key.fill")
+                            .foregroundColor(.green)
+                        Text("Using your \(provider.displayName) API key — requests go directly to \(provider.displayName), not through SuperPaste's servers.")
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Spacer()
+                        Button("Remove") {
+                            appState.clearAPIKey(for: provider)
+                            apiKeyInput = ""
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .buttonStyle(.plain)
+                    }
+                    .font(.caption)
+                    .padding(.vertical, 4)
+                } else {
+                    Text("SuperPaste is free forever with your own key: screenshots go directly to \(provider.displayName). You pay them for what you use (typically well under a cent per paste).")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        SecureField("Paste your \(provider.displayName) API key", text: $apiKeyInput)
+                            .textFieldStyle(.roundedBorder)
+                        Button("Save") {
+                            appState.setAPIKey(apiKeyInput, for: provider)
+                            apiKeyInput = ""
+                        }
+                        .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+
+                    if let url = provider.signupURL {
+                        Link("Get a \(provider.displayName) API key \u{2192}",
+                             destination: url)
+                            .font(.caption)
+                    }
+                }
+            }
+        }
+    }
+
+    private func saveProviderChange(provider: LLMProviderID) {
+        let config = LLMProviderConfig(
+            provider: provider,
+            model: provider.supportsCustomModel ? customModelInput : provider.defaultModel,
+            customEndpoint: provider == .custom ? customEndpointInput : ""
+        )
+        appState.setProviderConfig(config)
     }
 
     // MARK: - License Section
@@ -55,11 +189,10 @@ struct SettingsPage: View {
                 .font(.headline)
 
             if appState.isLicensed {
-                // Licensed state
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundColor(.green)
-                    Text("Licensed — thank you!")
+                    Text("Licensed \u{2014} thank you!")
                         .foregroundColor(.green)
                         .fontWeight(.medium)
                     Spacer()
@@ -74,8 +207,7 @@ struct SettingsPage: View {
                 .font(.subheadline)
                 .padding(.vertical, 4)
             } else {
-                // Unlicensed — show entry field
-                Text("Enter your license key to unlock full access.")
+                Text("Enter your license key to unlock the hosted SuperPaste plan.")
                     .font(.caption)
                     .foregroundColor(.secondary)
 
@@ -120,66 +252,12 @@ struct SettingsPage: View {
                             NSWorkspace.shared.open(url)
                         }
                     } label: {
-                        Text("Get a license — $5/month →")
+                        Text("Get a license \u{2014} $5/month \u{2192}")
                     }
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundColor(.blue)
                 }
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-    }
-
-    // MARK: - Bring Your Own Key Section
-
-    private var apiKeySection: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Use Your Own Anthropic API Key")
-                .font(.headline)
-
-            if appState.usingOwnAPIKey {
-                HStack(spacing: 8) {
-                    Image(systemName: "key.fill")
-                        .foregroundColor(.green)
-                    Text("Using your API key — requests go straight from your Mac to Anthropic. No subscription needed.")
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                    Spacer()
-                    Button("Remove") {
-                        appState.clearUserAPIKey()
-                        apiKeyInput = ""
-                    }
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .buttonStyle(.plain)
-                }
-                .font(.caption)
-                .padding(.vertical, 4)
-            } else {
-                Text("SuperPaste is free forever with your own key: screenshots go directly to Anthropic, never through SuperPaste's servers. You pay Anthropic for what you use (typically well under a cent per paste).")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                HStack(spacing: 8) {
-                    SecureField("sk-ant-…", text: $apiKeyInput)
-                        .textFieldStyle(.roundedBorder)
-
-                    Button("Save") {
-                        appState.setUserAPIKey(apiKeyInput)
-                        apiKeyInput = ""
-                    }
-                    .disabled(apiKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                }
-
-                Link("Get an API key from Anthropic →",
-                     destination: URL(string: "https://console.anthropic.com/settings/keys")!)
-                    .font(.caption)
             }
         }
         .padding()
@@ -201,7 +279,6 @@ struct SettingsPage: View {
                 .foregroundColor(.secondary)
 
             ZStack(alignment: .topLeading) {
-                // Placeholder
                 if personalContext.isEmpty {
                     Text("I'm a product manager at a tech company. I prefer direct, concise communication. For emails I lean professional but warm. When I'm writing code it's usually Swift or Python.")
                         .font(.system(size: 13))
@@ -210,7 +287,6 @@ struct SettingsPage: View {
                         .padding(.vertical, 8)
                         .allowsHitTesting(false)
                 }
-
                 TextEditor(text: $personalContext)
                     .font(.system(size: 13))
                     .frame(minHeight: 90)
@@ -272,35 +348,29 @@ struct SettingsPage: View {
             Text("Writing Style")
                 .font(.headline)
 
-            // Tone picker
             VStack(alignment: .leading, spacing: 6) {
                 Text("Tone")
                     .font(.subheadline.weight(.medium))
-
                 Picker("Tone", selection: $responseTone) {
                     ForEach(ResponseTone.allCases) { tone in
                         Text(tone.displayName).tag(tone)
                     }
                 }
                 .pickerStyle(.segmented)
-
                 Text(responseTone.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
-            // Length picker
             VStack(alignment: .leading, spacing: 6) {
                 Text("Length")
                     .font(.subheadline.weight(.medium))
-
                 Picker("Length", selection: $responseLength) {
                     ForEach(ResponseLength.allCases) { length in
                         Text(length.displayName).tag(length)
                     }
                 }
                 .pickerStyle(.segmented)
-
                 Text(responseLength.description)
                     .font(.caption)
                     .foregroundColor(.secondary)
@@ -319,9 +389,7 @@ struct SettingsPage: View {
                 Text("Where the SuperPaste status bubble appears")
                     .font(.caption)
                     .foregroundColor(.secondary)
-
                 Spacer()
-
                 Button("Preview") {
                     appState.previewHUD()
                 }
@@ -330,20 +398,12 @@ struct SettingsPage: View {
             }
 
             HStack(spacing: 4) {
-                CornerButton(position: .topLeft, selected: hudPosition == .topLeft) {
-                    hudPosition = .topLeft
-                }
-                CornerButton(position: .topRight, selected: hudPosition == .topRight) {
-                    hudPosition = .topRight
-                }
+                CornerButton(position: .topLeft, selected: hudPosition == .topLeft) { hudPosition = .topLeft }
+                CornerButton(position: .topRight, selected: hudPosition == .topRight) { hudPosition = .topRight }
             }
             HStack(spacing: 4) {
-                CornerButton(position: .bottomLeft, selected: hudPosition == .bottomLeft) {
-                    hudPosition = .bottomLeft
-                }
-                CornerButton(position: .bottomRight, selected: hudPosition == .bottomRight) {
-                    hudPosition = .bottomRight
-                }
+                CornerButton(position: .bottomLeft, selected: hudPosition == .bottomLeft) { hudPosition = .bottomLeft }
+                CornerButton(position: .bottomRight, selected: hudPosition == .bottomRight) { hudPosition = .bottomRight }
             }
         }
     }
@@ -354,42 +414,18 @@ struct SettingsPage: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("App Behavior")
                 .font(.headline)
-
             Toggle("Play sound when ready", isOn: $playSoundOnReady)
-
             Toggle("Launch SuperPaste at login", isOn: $launchAtLogin)
                 .onChange(of: launchAtLogin) { _, newValue in
                     appState.setLaunchAtLogin(newValue)
                 }
-
             Text("Keep this on so the hotkey is available after login without opening SuperPaste manually.")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
     }
-
-    private var advancedSection: some View {
-        DisclosureGroup(isExpanded: $isAdvancedExpanded) {
-            apiKeySection
-                .padding(.top, 10)
-        } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Advanced")
-                    .font(.headline)
-                Text("Use your own Anthropic account instead of a SuperPaste plan.")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .controlBackgroundColor))
-        )
-    }
 }
 
-/// A corner selection button
 struct CornerButton: View {
     let position: HUDPosition
     let selected: Bool

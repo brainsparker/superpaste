@@ -58,28 +58,3 @@ struct Keychain {
         SecItemDelete(query as CFDictionary)
     }
 }
-
-/// Optional user-supplied Anthropic API key. When set, the app talks to
-/// Anthropic directly and never touches the SuperPaste backend — the free,
-/// bring-your-own-key mode promised on the website.
-enum UserAPIKey {
-    private static let keychain = Keychain(service: "app.superpaste.byokey")
-
-    static var current: String? {
-        guard let key = keychain.read(), !key.isEmpty else { return nil }
-        return key
-    }
-
-    static func set(_ key: String) throws {
-        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            keychain.delete()
-        } else {
-            try keychain.write(trimmed)
-        }
-    }
-
-    static func clear() {
-        keychain.delete()
-    }
-}

@@ -271,7 +271,7 @@ struct ReadyView: View {
                 }
             }
             .font(.subheadline)
-            Text("AI by Anthropic")
+            Text("AI by Anthropic · OpenAI · OpenRouter")
                 .font(.caption).foregroundColor(.secondary)
         }
     }
