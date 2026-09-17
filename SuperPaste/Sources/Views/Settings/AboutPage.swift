@@ -45,6 +45,10 @@ struct AboutPage: View {
                     .font(.caption)
                     .foregroundStyle(.tertiary)
 
+                Link("Created by sparker.ai", destination: URL(string: "https://sparker.ai")!)
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+
                 Text("\u{00A9} \(currentYear) All rights reserved.")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
