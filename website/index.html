@@ -53,13 +53,13 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #000;
-      --surface: #0a0a0a;
-      --surface-2: #111;
+      --bg: #080a0e;
+      --surface: #0d1118;
+      --surface-2: #111720;
       --border: rgba(255,255,255,0.08);
       --text: #f5f5f7;
-      --text-2: rgba(245,245,247,0.6);
-      --text-3: rgba(245,245,247,0.35);
+      --text-2: #aeb8c7;
+      --text-3: #929eaf;
       --blue: #0071e3;
       --blue-hover: #0077ed;
       --blue-glow: rgba(0,113,227,0.25);
@@ -68,6 +68,23 @@
     }
 
     html { scroll-behavior: smooth; }
+
+    :focus-visible { outline: 2px solid #79baff; outline-offset: 5px; }
+    h1, h2, h3 { text-wrap: balance; }
+    button { font: inherit; }
+    .skip-link { position: fixed; top: -100px; left: 16px; z-index: 200; }
+    .skip-link:focus { top: 12px; }
+    .nav-logo::before {
+      content: '⌥V';
+      display: inline-block;
+      margin-right: 10px;
+      padding: 3px 7px;
+      border: 1px solid #476181;
+      border-bottom-width: 3px;
+      border-radius: 6px;
+      color: #90c7ff;
+      font-size: 12px;
+    }
 
     body {
       background: var(--bg);
@@ -90,7 +107,7 @@
       justify-content: space-between;
       padding: 0 40px;
       height: 60px;
-      background: rgba(0,0,0,0.8);
+      background: rgba(8,10,14,0.88);
       backdrop-filter: blur(20px);
       -webkit-backdrop-filter: blur(20px);
       border-bottom: 1px solid var(--border);
@@ -164,16 +181,21 @@
 
     /* Hero */
     .hero {
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1.08fr);
+      gap: 56px;
       align-items: center;
-      justify-content: center;
-      text-align: center;
-      padding: 140px 24px 100px;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 160px 32px 100px;
       position: relative;
-      overflow: hidden;
     }
+
+    .hero-copy { position: relative; z-index: 1; }
+    .hero .hero-actions { justify-content: flex-start; gap: 12px; }
+    .hero .btn-large { padding: 14px 22px; font-size: 15px; }
+    .hero-proof { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 24px; font-size: 12px; color: var(--text-2); }
+    .hero-proof span::before { content: '✓'; margin-right: 6px; color: var(--green); }
 
     .hero::before {
       content: '';
@@ -181,8 +203,8 @@
       top: 20%;
       left: 50%;
       transform: translate(-50%, -50%);
-      width: 800px;
-      height: 800px;
+      width: min(800px, 100%);
+      height: 600px;
       background: radial-gradient(circle, rgba(0,113,227,0.12) 0%, transparent 70%);
       pointer-events: none;
     }
@@ -202,7 +224,7 @@
     }
 
     .hero h1 {
-      font-size: clamp(48px, 8vw, 88px);
+      font-size: clamp(44px, 5vw, 68px);
       font-weight: 700;
       letter-spacing: -0.04em;
       line-height: 1.05;
@@ -211,18 +233,18 @@
     }
 
     .hero h1 span {
-      background: linear-gradient(135deg, #fff 40%, rgba(255,255,255,0.4));
+      background: linear-gradient(135deg, #fff 35%, #a7c9f0);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
     }
 
     .hero-sub {
-      font-size: clamp(18px, 2.5vw, 22px);
+      font-size: clamp(17px, 1.7vw, 20px);
       color: var(--text-2);
       max-width: 560px;
-      margin-bottom: 48px;
-      font-weight: 300;
+      margin-bottom: 28px;
+      font-weight: 400;
       line-height: 1.5;
     }
 
@@ -242,7 +264,7 @@
 
     /* Animated demo */
     .demo {
-      margin-top: 72px;
+      margin-top: 0;
       width: 100%;
       max-width: 640px;
       text-align: left;
@@ -284,7 +306,12 @@
       text-overflow: ellipsis;
     }
 
-    .demo-body { padding: 20px; }
+    .demo-body { padding: 24px; }
+    .demo-context { min-height: 108px; }
+    .demo-caption { margin-top: 16px; text-align: center; font-size: 12px; color: var(--text-3); }
+    .demo-replay { background: none; color: var(--text-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-size: 12px; }
+    .demo-replay:hover { color: var(--text); border-color: #6982a2; }
+    .demo-replay:disabled { cursor: wait; opacity: 0.6; }
 
     .demo-msg {
       margin-bottom: 16px;
@@ -303,7 +330,7 @@
     .demo-text { color: var(--text-2); }
 
     .demo-field {
-      min-height: 92px;
+      min-height: 126px;
       padding: 12px 14px;
       border: 1px solid rgba(255,255,255,0.14);
       border-radius: 10px;
@@ -388,7 +415,7 @@
 
     /* Section */
     section {
-      padding: 100px 24px;
+      padding: 80px 32px;
       max-width: 1100px;
       margin: 0 auto;
       scroll-margin-top: 80px;
@@ -404,7 +431,7 @@
     }
 
     .section-title {
-      font-size: clamp(32px, 5vw, 52px);
+      font-size: clamp(30px, 3.6vw, 44px);
       font-weight: 700;
       letter-spacing: -0.03em;
       line-height: 1.1;
@@ -415,7 +442,7 @@
       font-size: 19px;
       color: var(--text-2);
       max-width: 560px;
-      font-weight: 300;
+      font-weight: 400;
       line-height: 1.55;
     }
 
@@ -424,7 +451,7 @@
       display: grid;
       grid-template-columns: repeat(3, 1fr);
       gap: 24px;
-      margin-top: 64px;
+      margin-top: 36px;
     }
 
     .step {
@@ -467,7 +494,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 24px;
-      margin-top: 64px;
+      margin-top: 36px;
     }
 
     .usecase {
@@ -530,7 +557,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 24px;
-      margin-top: 64px;
+      margin-top: 36px;
     }
 
     .privacy-card {
@@ -575,6 +602,206 @@
       text-underline-offset: 3px;
     }
 
+    /* Privacy flow diagram */
+    .flow {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+      gap: 14px;
+      align-items: stretch;
+      margin-top: 36px;
+    }
+
+    .flow-node {
+      padding: 22px 18px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      text-align: center;
+    }
+
+    .flow-glyph {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      background: rgba(0,113,227,0.12);
+      border: 1px solid rgba(0,113,227,0.3);
+      color: #4da3ff;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    }
+
+    .flow-node strong {
+      display: block;
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 6px;
+    }
+
+    .flow-node span {
+      display: block;
+      font-size: 13px;
+      color: var(--text-2);
+      line-height: 1.45;
+    }
+
+    .flow-link {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-width: 70px;
+    }
+
+    .flow-line {
+      position: relative;
+      width: 100%;
+      max-width: 58px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(0,113,227,0.15), rgba(0,113,227,0.6));
+    }
+
+    .flow-line::after {
+      content: '';
+      position: absolute;
+      right: -1px;
+      top: -4px;
+      border-left: 7px solid rgba(0,113,227,0.6);
+      border-top: 5px solid transparent;
+      border-bottom: 5px solid transparent;
+    }
+
+    .flow-label {
+      font-size: 11px;
+      color: var(--text-3);
+      text-align: center;
+    }
+
+    .flow-footnote {
+      margin-top: 24px;
+      font-size: 14px;
+      color: var(--text-2);
+      max-width: 640px;
+      line-height: 1.6;
+    }
+
+    /* Setup preview */
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      max-width: 1040px;
+      margin: 36px auto 0;
+      text-align: left;
+    }
+
+    .setup-card {
+      padding: 24px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    .setup-num {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      margin-bottom: 14px;
+      border-radius: 50%;
+      background: var(--blue);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .setup-card h3 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 4px;
+    }
+
+    .setup-card > p {
+      font-size: 13.5px;
+      color: var(--text-2);
+      line-height: 1.55;
+    }
+
+    .settings-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 14px 0 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    .settings-name {
+      font-size: 13.5px;
+      font-weight: 500;
+    }
+
+    .mini-toggle {
+      position: relative;
+      flex-shrink: 0;
+      width: 34px;
+      height: 20px;
+      margin-left: auto;
+      border-radius: 999px;
+      background: var(--green);
+    }
+
+    .mini-toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .practice-mini {
+      margin: 14px 0 12px;
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .practice-field {
+      min-height: 44px;
+      margin-top: 8px;
+      padding: 8px 10px;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.03);
+    }
+
+    .practice-key {
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .setup-note {
+      max-width: 640px;
+      margin: 20px auto 44px;
+      font-size: 13px;
+      color: var(--text-2);
+    }
+
     /* Open source */
     #open-source { border-top: 1px solid var(--border); }
 
@@ -582,7 +809,7 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 48px;
-      margin-top: 64px;
+      margin-top: 36px;
       align-items: start;
     }
 
@@ -638,11 +865,22 @@
 
     /* Pricing */
     #pricing { border-top: 1px solid var(--border); }
+    .pricing-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 64px; align-items: center; }
+    .pricing-card { width: 100%; }
+    .pricing-layout .pricing-card { margin-top: 0; max-width: none; }
+    .pricing-layout .pricing-oss { margin-top: 24px; }
+    #download { text-align: center; background: radial-gradient(ellipse at top, #14263e 0, transparent 65%); border: 1px solid var(--border); border-radius: 24px; margin: 40px auto; }
+    #download .section-title, #download .section-sub { margin-left: auto; margin-right: auto; }
+    #download .hero-actions { margin: 28px 0 12px; }
+    #download .setup-note { margin-bottom: 0; }
+    .download-meta { color: var(--text-3); font-size: 13px; }
+    .setup-caption { color: var(--text-3); font-size: 12px; margin-top: 24px; }
+    .full-divider { max-width: 1036px; margin: auto; }
 
     .pricing-card {
-      margin-top: 64px;
+      margin-top: 36px;
       max-width: 420px;
-      padding: 48px;
+      padding: 32px;
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: 24px;
@@ -836,16 +1074,62 @@
       .demo-window, .pricing-card, .btn { transition: none; }
     }
 
+    @media (max-width: 1000px) {
+      .hero { gap: 28px; padding-top: 120px; }
+      .nav-links { gap: 18px; }
+      .pricing-layout { gap: 32px; }
+    }
+
     /* Responsive */
     @media (max-width: 768px) {
       nav { padding: 0 20px; }
+      .hero { grid-template-columns: 1fr; padding: 112px 24px 56px; gap: 40px; }
+      .hero-copy { text-align: center; }
+      .hero-sub { margin-left: auto; margin-right: auto; }
+      .hero .hero-actions, .hero-proof { justify-content: center; }
+      .hero h1 { font-size: clamp(42px, 9vw, 64px); }
+      .demo { margin: auto; }
+      section { padding: 56px 24px; }
+      .pricing-layout { grid-template-columns: 1fr; }
+      .step, .usecase, .privacy-card, .pricing-card { padding: 24px; }
+      #download { margin: 24px 12px; padding: 40px 20px; }
+      .hero-actions { gap: 12px; }
+      .btn-large { padding: 14px 24px; }
+      .oss-actions { flex-wrap: wrap; }
+      .faq-item p { padding-right: 0; }
       .nav-links { display: none; }
 
       .steps,
       .usecase-grid,
       .privacy-grid,
+      .setup-grid,
+      .flow,
       .oss-grid {
         grid-template-columns: 1fr;
+      }
+
+      .flow-link {
+        flex-direction: row;
+        justify-content: center;
+        min-width: auto;
+        padding: 4px 0;
+      }
+
+      .flow-line {
+        width: 2px;
+        height: 24px;
+        max-width: none;
+        background: linear-gradient(180deg, rgba(0,113,227,0.15), rgba(0,113,227,0.6));
+      }
+
+      .flow-line::after {
+        right: -4px;
+        top: auto;
+        bottom: -1px;
+        border-top: 7px solid rgba(0,113,227,0.6);
+        border-left: 5px solid transparent;
+        border-right: 5px solid transparent;
+        border-bottom: none;
       }
 
       .oss-grid { gap: 32px; }
@@ -862,6 +1146,7 @@
   </style>
 </head>
 <body>
+  <a class="skip-link btn btn-primary" href="#main">Skip to content</a>
 
   <!-- Nav -->
   <nav>
@@ -873,23 +1158,27 @@
       <li><a href="#pricing">Pricing</a></li>
       <li><a href="#faq">FAQ</a></li>
     </ul>
-    <a class="btn btn-primary" href="#download">Download free</a>
+    <a class="btn btn-primary" href="#download">Try it free</a>
   </nav>
 
+  <main id="main">
   <!-- Hero -->
   <div class="hero">
-    <div class="hero-eyebrow">Mac only &nbsp;·&nbsp; Your choice of AI provider</div>
+    <div class="hero-copy">
+    <div class="hero-eyebrow">Native for Mac &nbsp;·&nbsp; Open source</div>
     <h1><span>Press Option V.<br>Text appears.</span></h1>
     <p class="hero-sub">
-      SuperPaste uses your active window to write for you. Place your cursor anywhere — email, Slack, a form, code — and the right text shows up instantly. Powered by Claude, GPT-4o, or any model you choose.
+      Turn the context in your active window into a draft, right where you’re typing. No copying. No prompting. No app switching.
     </p>
     <div class="hero-actions">
       <a class="btn btn-primary btn-large" href="#download">Download for Mac</a>
       <a class="btn btn-ghost btn-large" href="#how-it-works">See how it works</a>
     </div>
-    <p class="hero-footnote">7-day free trial &nbsp;·&nbsp; $5/month after &nbsp;·&nbsp; macOS 14+</p>
+    <p class="hero-footnote">7 days free · No card required · Then $5/month</p>
 
-    <div class="demo" role="img" aria-label="Animated demo: pressing Option V pastes an AI-written reply into the focused text field">
+    <div class="hero-proof"><span>macOS 14+</span><span>Claude, GPT &amp; more</span><span>Your key, no subscription</span></div>
+    </div>
+    <div class="demo" role="figure" aria-label="Illustrated example of an AI-written draft">
       <div class="demo-window" id="demo-window">
         <div class="demo-titlebar">
           <span class="tl-dot tl-red"></span><span class="tl-dot tl-yellow"></span><span class="tl-dot tl-green"></span>
@@ -899,17 +1188,19 @@
           <div class="demo-context" id="demo-context">
             <div class="demo-msg">
               <span class="demo-who">Dana Reyes</span>
-              <span class="demo-text">Hey — any update on the launch date? Marketing needs to lock the announcement this week.</span>
+              <span class="demo-text">The launch is confirmed for the 24th. Could you send a quick acknowledgment so Marketing can lock the announcement?</span>
             </div>
           </div>
-          <div class="demo-field"><span class="demo-typed" id="demo-typed">Hi Dana — we're on track for the 24th. QA wraps Friday, so you can safely lock the announcement. I'll flag anything that changes before Wednesday.</span><span class="demo-caret"></span></div>
+          <div class="demo-field"><span class="demo-typed" id="demo-typed">Thanks, Dana — noted on the 24th. Marketing can go ahead and lock the announcement.</span><span class="demo-caret"></span></div>
         </div>
       </div>
-      <div class="demo-hud" aria-hidden="true">
-        <span class="demo-key" id="demo-key">⌥ V</span>
-        <span class="demo-thinking" id="demo-thinking"><i></i><i></i><i></i></span>
-        <span class="demo-pasted" id="demo-pasted">Pasted ✓</span>
+      <div class="demo-hud">
+        <span class="demo-key" id="demo-key" aria-hidden="true">⌥ V</span>
+        <span class="demo-thinking" id="demo-thinking" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span class="demo-pasted on" id="demo-pasted">Draft ready ✓</span>
+        <button class="demo-replay" id="demo-replay" type="button">Play example</button>
       </div>
+      <p class="demo-caption">Illustrated example · A draft, not a sent message.</p>
     </div>
   </div>
 
@@ -918,7 +1209,7 @@
   <!-- How it works -->
   <section id="how-it-works">
     <div class="section-label">How it works</div>
-    <h2 class="section-title">Three seconds, start to finish.</h2>
+    <h2 class="section-title">From blank field to first draft.</h2>
     <p class="section-sub">No copy-pasting, no app switching, no explaining context. Just press a key.</p>
 
     <div class="steps">
@@ -935,7 +1226,7 @@
       <div class="step">
         <div class="step-num">3</div>
         <h3>Text appears</h3>
-        <p>The response is pasted directly into your field — no ⌘V required. Done before you've moved your hands. Don't like it? ⌘Z undoes it.</p>
+        <p>The response is pasted directly into your field — no ⌘V required. Read it before sending. Don't like it? ⌘Z undoes it.</p>
       </div>
     </div>
   </section>
@@ -1044,6 +1335,36 @@
       </div>
     </div>
 
+    <div class="flow" role="figure" aria-label="How your draft is generated">
+      <div class="flow-node">
+        <div class="flow-glyph">⌥V</div>
+        <strong>Active window</strong>
+        <span>One screenshot when you press ⌥V. No continuous capture.</span>
+      </div>
+      <div class="flow-link" aria-hidden="true">
+        <div class="flow-line"></div>
+        <div class="flow-label">On demand</div>
+      </div>
+      <div class="flow-node">
+        <div class="flow-glyph">AI</div>
+        <strong>Your chosen provider</strong>
+        <span>Hosted: via SuperPaste to Claude. Your key: directly to your chosen provider.</span>
+      </div>
+      <div class="flow-link" aria-hidden="true">
+        <div class="flow-line"></div>
+        <div class="flow-label">⌘V</div>
+      </div>
+      <div class="flow-node">
+        <div class="flow-glyph">⌘V</div>
+        <strong>Pasted at cursor</strong>
+        <span>A draft in your text field. You review, edit, and decide when to send.</span>
+      </div>
+    </div>
+
+    <p class="flow-footnote">
+      SuperPaste does not store screenshots after processing. Your provider’s API data policies apply. Custom endpoints can also run locally on your Mac.
+    </p>
+
     <p class="privacy-footnote">Don't take our word for it — <a href="#open-source">read the code</a>, or the full <a href="/privacy">privacy policy</a>.</p>
   </section>
 
@@ -1091,18 +1412,22 @@ Building SuperPaste…
 
   <!-- Pricing -->
   <section id="pricing">
+    <div class="pricing-layout">
+    <div>
     <div class="section-label">Pricing</div>
     <h2 class="section-title">Simple. No tiers.</h2>
     <p class="section-sub">One plan, one price. Download and use it free for a week — no card required.</p>
 
+    <p class="pricing-oss">Prefer not to subscribe? Turn on Settings → "Use your own API key" and SuperPaste is free forever — in the official app or a build you <a href="#open-source">compile from source</a>.</p>
+    </div>
     <div class="pricing-card">
       <div class="pricing-badge">SuperPaste</div>
       <div class="price"><sup>$</sup>5</div>
       <div class="price-period">per month &nbsp;·&nbsp; cancel anytime</div>
 
       <ul class="pricing-features">
-        <li><span class="check">✓</span> 100 AI responses a day — more than anyone actually uses</li>
-        <li><span class="check">✓</span> Powered by Claude — the best AI for writing</li>
+        <li><span class="check">✓</span> Up to 100 AI responses a day</li>
+        <li><span class="check">✓</span> Claude included — no API key to set up</li>
         <li><span class="check">✓</span> Personal context — write in your voice</li>
         <li><span class="check">✓</span> Auto-paste — no ⌘V required</li>
         <li><span class="check">✓</span> Signed app with built-in update checks</li>
@@ -1115,7 +1440,7 @@ Building SuperPaste…
       <p class="pricing-trial">7 days free, 15 responses/day during the trial &nbsp;·&nbsp; No credit card to start</p>
     </div>
 
-    <p class="pricing-oss">Prefer not to subscribe? Turn on Settings → "Use your own API key" and SuperPaste is free forever — in the official app or a build you <a href="#open-source">compile from source</a>.</p>
+    </div>
   </section>
 
   <!-- FAQ -->
@@ -1153,10 +1478,10 @@ Building SuperPaste…
         <p>Generation pauses until you subscribe — $5/month, cancel anytime, with 100 responses a day. Nothing is auto-charged; the trial needs no card. Or add your own API key in Settings and keep using SuperPaste free.</p>
       </details>
       <details class="faq-item">
-      <details class="faq-item">
         <summary>Which AI providers does SuperPaste support?</summary>
         <p>SuperPaste works with any provider you bring. Use the hosted SuperPaste plan (powered by Claude), bring your own Anthropic, OpenAI, or OpenRouter key, or point it at any OpenAI-compatible endpoint - including local models via Ollama, LM Studio, or vLLM. Switch freely in Settings without losing your stored keys.</p>
       </details>
+      <details class="faq-item">
         <summary>Is it really open source?</summary>
         <p>Yes — MIT licensed, with the full source at <a href="https://github.com/brainsparker/superpaste" style="color: var(--text-2);">github.com/brainsparker/superpaste</a>, including both the app and the server.</p>
       </details>
@@ -1166,10 +1491,10 @@ Building SuperPaste…
   <hr class="full-divider" />
 
   <!-- Download -->
-  <section id="download" style="text-align: center; padding: 100px 24px;">
+  <section id="download">
     <div class="section-label">Download</div>
     <h2 class="section-title" style="max-width: 600px; margin: 0 auto 20px;">Ready when you are.</h2>
-    <p class="section-sub" style="margin: 0 auto 48px;">Download SuperPaste, open it, and press Option V. That's it.</p>
+    <p class="section-sub" style="margin: 0 auto 32px;">Download SuperPaste, open it, and follow the short setup.</p>
 
     <div class="hero-actions">
       <a class="btn btn-primary btn-large" href="https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg">
@@ -1182,6 +1507,47 @@ Building SuperPaste…
     <p style="font-size: 13px; color: var(--text-2); margin-top: 16px;">
       macOS 14 Sonoma or later &nbsp;·&nbsp; Apple Silicon &amp; Intel
     </p>
+
+    <p class="setup-caption">Setup preview · Simplified illustrations, not screenshots</p>
+    <div class="setup-grid" role="figure" aria-label="First-launch walkthrough: grant Screen Recording, grant Accessibility, then try a safe practice paste">
+      <div class="setup-card">
+        <div class="setup-num">1</div>
+        <h3>Screen Recording</h3>
+        <p>Lets SuperPaste capture the frontmost window — one frame, only at the moment you press the key.</p>
+        <div class="settings-row" aria-hidden="true">
+          <span class="settings-name">SuperPaste</span>
+          <span class="mini-toggle"></span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-3);">System Settings &gt; Privacy &amp; Security &gt; Screen Recording</p>
+      </div>
+
+      <div class="setup-card">
+        <div class="setup-num">2</div>
+        <h3>Accessibility</h3>
+        <p>Lets SuperPaste register the global shortcut and paste the drafted text at your cursor.</p>
+        <div class="settings-row" aria-hidden="true">
+          <span class="settings-name">SuperPaste</span>
+          <span class="mini-toggle"></span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-3);">System Settings &gt; Privacy &amp; Security &gt; Accessibility</p>
+      </div>
+
+      <div class="setup-card">
+        <div class="setup-num">3</div>
+        <h3>Practice paste</h3>
+        <p>Try it safely in a sample email inside SuperPaste itself before using it in your real apps.</p>
+        <div class="practice-mini" aria-hidden="true">
+          <div style="font-size: 12px; color: var(--text-3); margin-bottom: 4px;">Alex: Coffee next week?</div>
+          <div class="practice-field"><span class="demo-caret"></span></div>
+          <div class="practice-key"><span class="demo-key" style="font-size: 12px; padding: 3px 8px;">⌥ V</span></div>
+        </div>
+      </div>
+    </div>
+
+    <p class="setup-note">
+      Two one-time permissions, then try a sample reply. macOS may ask you to relaunch to apply Screen Recording.
+    </p>
+
   </section>
 
   <hr class="full-divider" />
@@ -1192,6 +1558,8 @@ Building SuperPaste…
     <h2 class="section-title" style="font-size: clamp(26px, 4vw, 36px);">Hi — I'm Brian.</h2>
     <p class="section-sub" style="max-width: 640px;">I built SuperPaste because I kept retyping replies when the answer was already sitting on my screen. It's a small tool that does one thing, and the code is public so you can see exactly what it does. If it breaks — or you have an idea — <a href="https://github.com/brainsparker">find me on GitHub</a>.</p>
   </section>
+
+  </main>
 
   <!-- Footer -->
   <footer>
@@ -1208,110 +1576,37 @@ Building SuperPaste…
 
   <script>
   (function () {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-
-    var SCENARIOS = [
-      {
-        app: 'Mail — Re: Launch timeline',
-        context: [
-          { who: 'Dana Reyes', text: 'Hey — any update on the launch date? Marketing needs to lock the announcement this week.' }
-        ],
-        response: "Hi Dana — we're on track for the 24th. QA wraps Friday, so you can safely lock the announcement. I'll flag anything that changes before Wednesday."
-      },
-      {
-        app: 'Slack — #support',
-        context: [
-          { who: 'mike', text: 'does anyone know if the export bug got fixed in 2.3.1?' }
-        ],
-        response: 'Yep — fixed in 2.3.1. It was the CSV encoding issue; exports with special characters work now. Release notes have the details.'
-      },
-      {
-        app: 'Safari — Conference registration',
-        context: [
-          { who: 'Dietary restrictions or accessibility needs?', text: '' }
-        ],
-        response: 'Vegetarian, no other restrictions. No accessibility accommodations needed — thank you for asking.'
-      }
-    ];
-
-    var win = document.getElementById('demo-window');
-    var app = document.getElementById('demo-app');
-    var ctx = document.getElementById('demo-context');
+    var button = document.getElementById('demo-replay');
     var typed = document.getElementById('demo-typed');
     var key = document.getElementById('demo-key');
     var thinking = document.getElementById('demo-thinking');
     var pasted = document.getElementById('demo-pasted');
+    var response = typed.textContent;
+    var reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 
-    var hidden = document.hidden;
-    document.addEventListener('visibilitychange', function () { hidden = document.hidden; });
+    function sleep(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
 
-    function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
-
-    // Wait, then hold while the tab is hidden so the animation resumes cleanly.
-    async function wait(ms) {
-      await sleep(ms);
-      while (hidden) await sleep(200);
-    }
-
-    function render(s) {
-      app.textContent = s.app;
-      ctx.textContent = '';
-      s.context.forEach(function (c) {
-        var m = document.createElement('div');
-        m.className = 'demo-msg';
-        var w = document.createElement('span');
-        w.className = 'demo-who';
-        w.textContent = c.who;
-        m.appendChild(w);
-        if (c.text) {
-          var t = document.createElement('span');
-          t.className = 'demo-text';
-          t.textContent = c.text;
-          m.appendChild(t);
-        }
-        ctx.appendChild(m);
-      });
-      typed.textContent = '';
-    }
-
-    async function cycle(s) {
-      win.classList.add('is-out');
-      await wait(500);
-      render(s);
-      win.classList.remove('is-out');
-      await wait(1200);
-
-      key.classList.add('pressed');
-      await wait(250);
-      key.classList.remove('pressed');
-      await wait(150);
-
-      thinking.classList.add('on');
-      await wait(1200);
-      thinking.classList.remove('on');
-
-      for (var i = 0; i < s.response.length; i++) {
-        typed.textContent += s.response[i];
-        await sleep(20 + Math.random() * 26);
-        while (hidden) await sleep(200);
+    button.addEventListener('click', async function () {
+      if (reducedMotion.matches) {
+        typed.textContent = response;
+        pasted.classList.add('on');
+        button.textContent = 'Example shown';
+        return;
       }
-
-      pasted.classList.add('on');
-      await wait(1400);
+      button.disabled = true;
       pasted.classList.remove('on');
-      await wait(1200);
-    }
-
-    async function run() {
-      var i = 0;
-      await wait(2200); // let the baked-in completed state breathe first
-      while (true) {
-        await cycle(SCENARIOS[i]);
-        i = (i + 1) % SCENARIOS.length;
-      }
-    }
-
-    run();
+      typed.textContent = '';
+      key.classList.add('pressed');
+      await sleep(200);
+      key.classList.remove('pressed');
+      thinking.classList.add('on');
+      await sleep(900);
+      thinking.classList.remove('on');
+      typed.textContent = response;
+      pasted.classList.add('on');
+      button.disabled = false;
+      button.textContent = 'Replay example';
+    });
   })();
   </script>
 
