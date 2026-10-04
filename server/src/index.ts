@@ -40,7 +40,7 @@ const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_TIMEOUT_MS = 60_000;
 
-const MODEL = "claude-sonnet-5";
+const MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 2048;
 
 const TRIAL_DURATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -303,6 +303,20 @@ async function validateLicense(key: string, env: Env): Promise<boolean> {
 }
 
 // --- Main handler ---
+// Shipped app versions read content[0] and require it to be a text block.
+// Newer models can lead with a thinking block, so pass through text only.
+export function textBlocksOnly(body: string, ok: boolean): string {
+  if (!ok) return body;
+  try {
+    const parsed = JSON.parse(body);
+    if (!Array.isArray(parsed?.content)) return body;
+    parsed.content = parsed.content.filter((block: { type?: string }) => block?.type === "text");
+    return JSON.stringify(parsed);
+  } catch {
+    return body;
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
@@ -400,8 +414,12 @@ export default {
       max_tokens: MAX_TOKENS,
       system: buildSystemPrompt(pasteReq),
       // Low-latency, no-thinking profile — the product is a hotkey, not a chat.
-      thinking: { type: "disabled" },
+      // Sonnet 5.5 rejects {type: "disabled"}; "between_tools" is its
+      // thinking-off setting (allowed at effort "high" or below).
+      thinking: { type: "between_tools" },
       output_config: { effort: "low" },
+      // On a cyber/frontier_llm refusal, Anthropic retries on Sonnet 5 server-side.
+      fallbacks: "default",
       messages: [
         {
           role: "user",
@@ -438,6 +456,7 @@ export default {
           "Content-Type": "application/json",
           "x-api-key": env.ANTHROPIC_API_KEY,
           "anthropic-version": ANTHROPIC_VERSION,
+          "anthropic-beta": "server-side-fallback-2026-07-01",
         },
         body: JSON.stringify(anthropicBody),
         signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
@@ -453,7 +472,7 @@ export default {
     // (Requests rejected before the upstream call still cost nothing.)
     ctx.waitUntil(Promise.all([bumpCounter(deviceUsageKey, env), bumpCounter(globalUsageKey, env)]));
 
-    const responseBody = await anthropicResponse.text();
+    const responseBody = textBlocksOnly(await anthropicResponse.text(), anthropicResponse.ok);
     return new Response(responseBody, {
       status: anthropicResponse.status,
       headers: { "Content-Type": "application/json" },
