@@ -84,6 +84,13 @@
       border-radius: 6px;
       color: #90c7ff;
       font-size: 12px;
+      transition: transform 0.12s ease, border-bottom-width 0.12s ease;
+    }
+
+    .nav-logo:hover::before,
+    .nav-logo:focus-visible::before {
+      transform: translateY(2px);
+      border-bottom-width: 1px;
     }
 
     body {
@@ -1071,7 +1078,7 @@
     @media (prefers-reduced-motion: reduce) {
       html { scroll-behavior: auto; }
       .demo-caret, .demo-thinking i { animation: none; }
-      .demo-window, .pricing-card, .btn { transition: none; }
+      .demo-window, .pricing-card, .btn, .nav-logo::before { transition: none; }
     }
 
     @media (max-width: 1000px) {
