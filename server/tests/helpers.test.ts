@@ -301,3 +301,24 @@ describe('validatePasteRequest', () => {
     expect(result.ok).toBe(true);
   });
 });
+import { textBlocksOnly } from '../src/index';
+
+describe('textBlocksOnly', () => {
+  it('drops thinking blocks so content[0] is text', () => {
+    const body = JSON.stringify({
+      content: [
+        { type: 'thinking', thinking: '' },
+        { type: 'text', text: 'hello' },
+      ],
+      stop_reason: 'end_turn',
+    });
+    const out = JSON.parse(textBlocksOnly(body, true));
+    expect(out.content).toEqual([{ type: 'text', text: 'hello' }]);
+    expect(out.stop_reason).toBe('end_turn');
+  });
+
+  it('passes error and non-JSON bodies through unchanged', () => {
+    expect(textBlocksOnly('{"error":{}}', false)).toBe('{"error":{}}');
+    expect(textBlocksOnly('not json', true)).toBe('not json');
+  });
+});
