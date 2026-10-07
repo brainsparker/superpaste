@@ -3,7 +3,6 @@ import SwiftUI
 /// View displayed when SuperPaste is fully configured and ready to use.
 struct ReadyView: View {
     @EnvironmentObject var appState: AppState
-    @Environment(\.openSettings) private var openSettings
     @ObservedObject private var updateController = UpdateController.shared
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("hasTriedOnce") private var hasTriedOnce = false
@@ -267,19 +266,14 @@ struct ReadyView: View {
                     }
                 }
                 Spacer()
-                Button {
-                    // The legacy showSettingsWindow: selector is dead on
-                    // macOS 14+; openSettings is the supported route.
-                    openSettings()
-                    NSApp.activate(ignoringOtherApps: true)
-                } label: {
+                // Same route as the menu bar's Settings item, which is the
+                // one path that reliably opens the window on macOS 14+.
+                SettingsLink {
                     Image(systemName: "gear")
                     Text("Settings")
                 }
             }
             .font(.subheadline)
-            Text("AI by Anthropic · OpenAI · OpenRouter")
-                .font(.caption).foregroundColor(.secondary)
         }
     }
 

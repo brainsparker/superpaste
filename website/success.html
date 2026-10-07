@@ -175,7 +175,7 @@
     <div class="steps">
       <div class="step">
         <div class="step-num">1</div>
-        <p><strong>Find your license key.</strong> Polar just emailed it to you — it's also in your <a href="https://polar.sh/purchases">Polar purchases page</a>.</p>
+        <p><strong>Get your license key</strong> from your <a id="portal-link" href="https://polar.sh/superpaste/portal">SuperPaste customer portal</a> — open it and copy the key under your subscription. (If it asks you to sign in, use the email you just paid with.)</p>
       </div>
       <div class="step">
         <div class="step-num">2</div>
@@ -195,6 +195,17 @@
   <footer>
     © 2026 SuperPaste &nbsp;·&nbsp; <a href="/privacy">Privacy</a> &nbsp;·&nbsp; <a href="/terms">Terms</a> &nbsp;·&nbsp; <a href="/refunds">Refunds</a>
   </footer>
+
+  <script>
+    // Polar appends a short-lived customer_session_token to the success URL;
+    // forwarding it signs the buyer straight into the portal, no email code.
+    (function () {
+      var token = new URLSearchParams(location.search).get('customer_session_token');
+      if (!token) return;
+      var link = document.getElementById('portal-link');
+      link.href = 'https://polar.sh/superpaste/portal?customer_session_token=' + encodeURIComponent(token);
+    })();
+  </script>
 
 </body>
 </html>

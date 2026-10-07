@@ -41,10 +41,6 @@ struct AboutPage: View {
                 .font(.caption.weight(.medium))
                 .foregroundColor(.secondary)
 
-                Text("AI by Anthropic")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-
                 Link("Created by sparker.ai", destination: URL(string: "https://sparker.ai")!)
                     .font(.caption)
                     .foregroundStyle(.tertiary)

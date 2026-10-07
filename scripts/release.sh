@@ -60,12 +60,56 @@ else
 fi
 
 echo "==> Creating DMG"
+# Build a read-write image first so Finder can lay out the install window
+# (app on the left, arrow, Applications alias on the right), then compress.
 STAGING="$DIST/dmg-staging"
-mkdir -p "$STAGING"
+RW_DMG="$DIST/SuperPaste-rw.dmg"
+VOLNAME="SuperPaste"
+mkdir -p "$STAGING/.background"
 cp -R "$APP" "$STAGING/"
 ln -s /Applications "$STAGING/Applications"
-hdiutil create -volname "SuperPaste" -srcfolder "$STAGING" -ov -format UDZO "$DMG" >/dev/null
-rm -rf "$STAGING"
+swift "$REPO/scripts/generate-dmg-background.swift" "$STAGING/.background/background.tiff" >/dev/null
+
+# A stale mount with the same name would make Finder style the wrong volume.
+if [ -d "/Volumes/$VOLNAME" ]; then
+    hdiutil detach "/Volumes/$VOLNAME" -force >/dev/null || true
+fi
+
+hdiutil create -volname "$VOLNAME" -srcfolder "$STAGING" -ov -format UDRW "$RW_DMG" >/dev/null
+MOUNT_DIR=$(hdiutil attach "$RW_DMG" -readwrite -noverify -noautoopen | grep -o '/Volumes/.*$' | head -1)
+
+# Icon positions must match scripts/generate-dmg-background.swift.
+if ! osascript <<EOF
+tell application "Finder"
+    tell disk "$VOLNAME"
+        open
+        set current view of container window to icon view
+        set toolbar visible of container window to false
+        set statusbar visible of container window to false
+        set bounds of container window to {200, 120, 800, 548}
+        set viewOptions to the icon view options of container window
+        set arrangement of viewOptions to not arranged
+        set icon size of viewOptions to 128
+        set text size of viewOptions to 13
+        set background picture of viewOptions to file ".background:background.tiff"
+        set position of item "SuperPaste.app" of container window to {150, 185}
+        set position of item "Applications" of container window to {450, 185}
+        update without registering applications
+        delay 1
+        close
+    end tell
+end tell
+EOF
+then
+    echo "    ⚠️  Finder layout failed (grant Terminal Automation access to Finder)."
+    echo "    The DMG still works but opens without the drag-to-install window."
+fi
+
+chmod -Rf go-w "$MOUNT_DIR" || true
+sync
+hdiutil detach "$MOUNT_DIR" >/dev/null
+hdiutil convert "$RW_DMG" -format UDZO -imagekey zlib-level=9 -o "$DMG" -ov >/dev/null
+rm -rf "$STAGING" "$RW_DMG"
 
 # Sign the DMG container itself (app inside is already signed) so even
 # container-level Gatekeeper checks pass. Must happen before notarization.
