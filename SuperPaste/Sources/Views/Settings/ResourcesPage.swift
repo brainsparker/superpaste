@@ -15,14 +15,14 @@ struct ResourcesPage: View {
                         icon: "book.fill",
                         title: "Documentation",
                         description: "Learn tips and little tricks",
-                        url: "https://superpaste.app/docs"
+                        url: "https://superpaste.ai/#faq"
                     )
 
                     ResourceLink(
                         icon: "bubble.left.fill",
                         title: "Send Feedback",
                         description: "Tell us what would make SuperPaste better",
-                        url: "mailto:feedback@superpaste.app"
+                        url: "mailto:superpaste@sparker.ai"
                     )
 
                     ResourceLink(
