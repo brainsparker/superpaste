@@ -207,6 +207,16 @@ final class AppState: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.cancelProcessing() }
             .store(in: &cancellables)
+
+        // Screen Recording only takes effect after a restart, so mid-setup the
+        // user quits — via macOS's "Quit & Reopen" prompt or ⌘Q — and then has
+        // to hunt for the app. Bring it back so setup picks up where it left off.
+        NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)
+            .sink { [weak self] _ in
+                guard let self, self.shouldOfferPermissionRelaunch, !self.screenRecordingEnabled else { return }
+                AppRelauncher.reopenAfterExit()
+            }
+            .store(in: &cancellables)
     }
 
     private func refreshCompetingInstances() {
@@ -612,15 +622,14 @@ final class AppState: ObservableObject {
     }
 
     func relaunchForPermissions() {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = ["-n", Bundle.main.bundleURL.path]
-        do {
-            try task.run()
-            NSApp.terminate(nil)
-        } catch {
+        // willTerminate schedules the reopen while setup is pending; schedule
+        // it here too so the button works even after that state clears.
+        guard AppRelauncher.reopenAfterExit() else {
             lastError = "Couldn't relaunch SuperPaste."
+            return
         }
+        shouldOfferPermissionRelaunch = false
+        NSApp.terminate(nil)
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {

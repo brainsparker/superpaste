@@ -31,4 +31,4 @@ simple = { limit = 10, period = 60 }
 
 # Production route — update once you've added the custom domain in Cloudflare dashboard
 # [env.production]
-# routes = [{ pattern = "api.superpaste.app/v1/*", zone_name = "superpaste.app" }]
+# routes = [{ pattern = "api.superpaste.ai/v1/*", zone_name = "superpaste.ai" }]
