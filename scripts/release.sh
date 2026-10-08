@@ -3,7 +3,10 @@
 # release.sh — build, sign, (optionally notarize), package, and publish
 # a SuperPaste release to GitHub.
 #
-# Usage: scripts/release.sh [--skip-notarize]
+# Usage: scripts/release.sh [--skip-notarize] [--local]
+#
+# --local stops after building dist/SuperPaste.dmg (no appcast, no GitHub
+# release) so the install window and first-launch flow can be tested.
 #
 # Signing: uses a "Developer ID Application" identity when one exists
 # (required for downloads to pass Gatekeeper). Falls back to the local
@@ -24,7 +27,14 @@ DMG="$DIST/SuperPaste.dmg"
 UPDATES_DIR="$DIST/updates"
 APPCAST="$UPDATES_DIR/appcast.xml"
 SKIP_NOTARIZE=false
-[[ "${1:-}" == "--skip-notarize" ]] && SKIP_NOTARIZE=true
+LOCAL_ONLY=false
+for arg in "$@"; do
+    case "$arg" in
+        --skip-notarize) SKIP_NOTARIZE=true ;;
+        --local) LOCAL_ONLY=true; SKIP_NOTARIZE=true ;;
+        *) echo "Unknown option: $arg" >&2; exit 1 ;;
+    esac
+done
 
 VERSION=$(plutil -extract CFBundleShortVersionString raw "$SPM/Resources/Info.plist")
 TAG="v$VERSION"
@@ -124,6 +134,11 @@ if [ "$SKIP_NOTARIZE" = false ] && [ -n "${DEV_ID:-}" ] && \
     xcrun stapler staple "$DMG"
 else
     echo "==> Skipping notarization (no Developer ID or no 'superpaste-notary' profile)"
+fi
+
+if [ "$LOCAL_ONLY" = true ]; then
+    echo "==> Local build ready: $DMG (not published)"
+    exit 0
 fi
 
 echo "==> Generating signed Sparkle appcast"

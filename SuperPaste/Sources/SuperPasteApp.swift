@@ -73,6 +73,10 @@ struct SuperPasteApp: App {
     }
 
     private func setupApp() {
+        // First: a run from the DMG or Downloads quits and reopens from
+        // /Applications, so don't start services in the copy that's leaving.
+        ApplicationsFolderMover.offerMoveIfNeeded()
+
         // Initialize HUD manager
         if hudManager == nil {
             hudManager = HUDManager(hudState: appState.hudState)
