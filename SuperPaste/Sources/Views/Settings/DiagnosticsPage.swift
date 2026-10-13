@@ -22,6 +22,10 @@ struct DiagnosticsPage: View {
                 row("Competing SuperPaste", appState.hasCompetingInstance ? "yes — quit one copy" : "no")
                 row("Paused", appState.isPaused ? "yes" : "no")
                 row("Provider", appState.providerConfig.provider.displayName)
+                if appState.providerConfig.provider.supportsCustomEndpoint {
+                    row("Endpoint host", appState.providerConfig.resolvedEndpoint.map(LocalEndpoint.displayHost) ?? "not set")
+                    row("Model", appState.providerConfig.model.isEmpty ? "auto (first vision model on the server)" : appState.providerConfig.model)
+                }
                 row("Last failure code", appState.hudState.lastFailure?.code.rawValue ?? "none")
             }
             .padding(24)

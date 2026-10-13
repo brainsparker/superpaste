@@ -8,7 +8,7 @@ It is fully open source under the MIT license. The hosted service is a **$5/mont
 
 **Don't want to subscribe? Bring your own API key** — Anthropic, OpenAI, or OpenRouter — and SuperPaste is genuinely free. It works in the paid build and in builds you compile from source, sending screenshots straight from your Mac to your chosen provider. No telemetry either way.
 
-You can also point SuperPaste at **any OpenAI-compatible endpoint**, including local models (Ollama, LM Studio, vLLM).
+Want nothing to leave your Mac? Pick **Ollama (local)** or **LM Studio (local)** in Settings. No API key, no account: SuperPaste finds the server on its default port, lists the models you have installed, and runs the screenshot through one of them on-device. Any other **OpenAI-compatible endpoint** (vLLM, llama.cpp, a gateway) works through the Custom provider, with the API key optional. See [Run fully local](#run-fully-local-ollama-or-lm-studio).
 
 ---
 
@@ -102,10 +102,32 @@ The reset command is also available directly:
 ./bin/reset-onboarding.sh --permissions
 ```
 
+## Run fully local (Ollama or LM Studio)
+
+SuperPaste can run entirely on your Mac. The screenshot goes to a model server on `localhost` and never touches the network.
+
+1. Install [Ollama](https://ollama.com/download) or [LM Studio](https://lmstudio.ai) and pull a vision-capable model. Vision matters: SuperPaste sends a screenshot, not text.
+   ```bash
+   ollama pull qwen3-vl        # or: gemma4, llama3.2-vision
+   ```
+   In LM Studio, download a vision model (Qwen3-VL, Gemma 4) and start the local server from the Developer tab.
+2. In SuperPaste, open **Settings → AI Provider** and choose **Ollama (local)** or **LM Studio (local)**.
+3. SuperPaste checks the server (`localhost:11434` for Ollama, `localhost:1234` for LM Studio), shows "Connected" with the installed models, and marks the ones that can read screenshots. Leave the model on **Auto** to use the first vision model it finds, or pick one.
+
+That's the whole setup. No API key field to fill, no trial clock, no subscription. Everything the app knows about the server (host and port, chosen model) is visible in **Settings → Diagnostics**.
+
+Notes:
+
+- Moved the server to another port or machine? Enter it in the **Server address** field. Any of `localhost:11434`, `http://host:port/v1`, or a full `/v1/chat/completions` URL is accepted. SuperPaste tells you whether the address is on this Mac or over the network.
+- Turned on authentication in LM Studio, or put a gateway in front of Ollama? Expand **API key (optional)** and save the key; it stays in the macOS Keychain.
+- Other OpenAI-compatible servers (vLLM, llama.cpp `llama-server`, Jan, MLX servers) work through **Custom (OpenAI-compatible)**. The key is optional there too, and the same model list and connection check apply when the server exposes `/v1/models`.
+- A text-only model will answer, but it cannot see the screenshot. SuperPaste warns when the selected model doesn't look vision-capable.
+- Local models are smaller than the hosted Claude model, so expect plainer replies, and give the first request a few extra seconds while the model loads.
+
 ## Privacy
 
 - SuperPaste captures one active-window screenshot only when you press Option+V.
-- The screenshot is sent to your chosen AI provider for generation and immediately discarded after processing. With the hosted plan it goes through the SuperPaste backend; with a bring-your-own-key it goes directly from your Mac to the provider — the SuperPaste backend never sees it.
+- The screenshot is sent to your chosen AI provider for generation and immediately discarded after processing. With the hosted plan it goes through the SuperPaste backend; with a bring-your-own-key it goes directly from your Mac to the provider — the SuperPaste backend never sees it. With a local provider (Ollama, LM Studio) it never leaves your Mac at all.
 - Accessibility is used for the global hotkey and the final `⌘V` paste.
 - No analytics, no telemetry, no crash reporting. If something goes wrong, please file an issue.
 
