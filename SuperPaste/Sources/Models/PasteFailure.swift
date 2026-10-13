@@ -24,8 +24,10 @@ struct PasteFailure: Equatable {
         case .serverError, .invalidResponse, .emptyResponse, .truncatedResponse:
             (code, recovery) = (.providerResponse, .retry)
         case .timeout: (code, recovery) = (.timeout, .retry)
-        case .invalidAPIKey, .providerNotConfigured:
+        case .invalidAPIKey, .providerNotConfigured, .modelNotFound, .noModelsAvailable:
             (code, recovery) = (.providerConfiguration, .openSettings)
+        case .localServerUnreachable:
+            (code, recovery) = (.network, .retry)
         case .imageEncodingFailed, .unclearContext:
             (code, recovery) = (.capture, nil)
         }

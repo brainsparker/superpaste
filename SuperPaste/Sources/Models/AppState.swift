@@ -47,8 +47,11 @@ final class AppState: ObservableObject {
     /// Whether a valid license is stored locally (Keychain). Drives UI in Settings.
     @Published private(set) var isLicensed: Bool = LicenseService.shared.hasLocalLicense
 
-    /// Whether any bring-your-own-key provider is active.
-    @Published private(set) var usingOwnAPIKey: Bool = UserCredentialStore.anyKeyActive
+    /// Whether the selected provider serves pastes outside the hosted backend:
+    /// a bring-your-own key, or a keyless local server (Ollama, LM Studio).
+    /// Drives trial enforcement, so it must track the selected provider rather
+    /// than "some key exists somewhere".
+    @Published private(set) var usingOwnAPIKey: Bool = LLMService.currentConfig().isOwnProviderReady
 
     /// Which provider is currently configured.
     @Published private(set) var providerConfig: LLMProviderConfig = LLMService.currentConfig()
@@ -268,7 +271,7 @@ final class AppState: ObservableObject {
 
     private func computeTrialDaysRemaining() {
         isLicensed = LicenseService.shared.hasLocalLicense
-        usingOwnAPIKey = UserCredentialStore.anyKeyActive
+        usingOwnAPIKey = providerConfig.isOwnProviderReady
 
         if isLicensed || usingOwnAPIKey {
             trialDaysRemaining = nil
