@@ -13,10 +13,14 @@ final class PermissionManager: ObservableObject {
     @Published private(set) var screenRecordingEnabled: Bool = false
     @Published private(set) var accessibilityEnabled: Bool = false
 
+    /// True when the user has attempted to grant Screen Recording this session
+    /// but the app hasn't detected it yet — hints that a relaunch may be needed.
+    @Published private(set) var mayNeedRelaunch: Bool = false
+
     // MARK: - Private
 
     private var pollingTimer: Timer?
-    private let pollingInterval: TimeInterval = 2.0
+    private let pollingInterval: TimeInterval = 1.0
 
     // MARK: - Initialization
 
@@ -38,6 +42,7 @@ final class PermissionManager: ObservableObject {
     func checkPermission() -> Bool {
         if CGPreflightScreenCaptureAccess() {
             screenRecordingEnabled = true
+            mayNeedRelaunch = false
             return true
         }
 
@@ -60,7 +65,10 @@ final class PermissionManager: ObservableObject {
             return !windowName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
 
-        screenRecordingEnabled = hasAccess
+        if hasAccess {
+            screenRecordingEnabled = true
+            mayNeedRelaunch = false
+        }
         return hasAccess
     }
 
@@ -92,8 +100,14 @@ final class PermissionManager: ObservableObject {
     }
 
     /// Request Screen Recording permission and open System Settings.
+    /// Calls CGRequestScreenCaptureAccess() first — this shows the system
+    /// dialog on macOS 14+ where the user clicks "Open System Settings",
+    /// which is less jarring than dropping them straight into the preference
+    /// pane without context. If that call shows the dialog, we still open
+    /// the pane as a reliable fallback.
     func openScreenRecordingSettings() {
-        _ = CGRequestScreenCaptureAccess()
+        CGRequestScreenCaptureAccess()
+        mayNeedRelaunch = true
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") else {
             return
         }
@@ -103,7 +117,7 @@ final class PermissionManager: ObservableObject {
     /// Request Accessibility permission (shows system dialog) and open System Settings.
     func openAccessibilitySettings() {
         let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true]
-        _ = AXIsProcessTrustedWithOptions(options)
+        AXIsProcessTrustedWithOptions(options)
         guard let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") else {
             return
         }

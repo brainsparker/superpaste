@@ -96,7 +96,18 @@ echo "Signing..."
 # Persistent self-signed cert keeps macOS TCC grants (Accessibility, Screen Recording)
 # alive across rebuilds. Ad-hoc signing ties the grant to a cdhash that changes on every
 # recompile, forcing the user back into System Settings each time.
-codesign -s "${CERT_NAME}" --force --deep "$APP"
+ENTITLEMENTS="$SPM/Resources/SuperPaste.entitlements"
+SIGN_ARGS=("${CERT_NAME}" --force --deep --options runtime)
+if [[ -f "$ENTITLEMENTS" ]]; then
+    echo "    Using entitlements: $ENTITLEMENTS"
+    SIGN_ARGS+=(--entitlements "$ENTITLEMENTS")
+fi
+# With a self-signed identity `--timestamp` would try to reach Apple's servers
+# and fail, slowing down the build. Only use timestamp with a Developer ID cert.
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "Developer ID Application:"; then
+    SIGN_ARGS+=(--timestamp)
+fi
+codesign -s "${SIGN_ARGS[@]}" "$APP"
 
 if [[ "${LAUNCH_APP}" == true ]]; then
     echo "Launching..."

@@ -1,28 +1,12 @@
 import SwiftUI
 
 /// Combined setup view for the two macOS permissions SuperPaste needs.
+/// Walks the user through Screen Recording first, then Accessibility.
+/// Each permission has its own card with inline status, action button, and
+/// — for Screen Recording — a relaunch hint when the toggle is on but the
+/// capability probe still fails.
 struct PermissionsSetupView: View {
     @EnvironmentObject var appState: AppState
-
-    private var nextPermissionTitle: String {
-        if !appState.screenRecordingEnabled {
-            return "Enable Screen Recording"
-        }
-        if !appState.accessibilityEnabled {
-            return "Enable Auto-Paste"
-        }
-        return "Check Again"
-    }
-
-    private var nextPermissionIcon: String {
-        if !appState.screenRecordingEnabled {
-            return "rectangle.inset.filled.and.cursorarrow"
-        }
-        if !appState.accessibilityEnabled {
-            return "hand.tap"
-        }
-        return "arrow.clockwise"
-    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -32,18 +16,25 @@ struct PermissionsSetupView: View {
 
             Divider()
 
-            permissionSection
+            ScrollView {
+                VStack(spacing: 20) {
+                    screenRecordingCard
+                    accessibilityCard
+                }
                 .padding(24)
+            }
 
             Divider()
 
-            footerSection
+            privacyFooter
                 .padding(.horizontal, 24)
                 .padding(.vertical, 16)
         }
-        .frame(width: 400)
+        .frame(width: 400, height: 520)
         .background(Color(nsColor: .windowBackgroundColor))
     }
+
+    // MARK: - Header
 
     private var headerSection: some View {
         VStack(spacing: 8) {
@@ -54,85 +45,53 @@ struct PermissionsSetupView: View {
             Text("SuperPaste")
                 .font(.title.bold())
 
-            Text("Press \(HotkeyPreset.current.shortName). Text appears.")
-
             Text("Two one-time permissions make the magic paste work.")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
     }
 
-    private var permissionSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            PermissionSetupRow(
-                icon: "rectangle.inset.filled.and.cursorarrow",
-                title: "Screen Recording",
-                detail: "Captures one snapshot of the active window only when you press \(HotkeyPreset.current.shortName).",
-                isEnabled: appState.screenRecordingEnabled
-            )
+    // MARK: - Screen Recording Card
 
-            PermissionSetupRow(
-                icon: "hand.tap",
-                title: "Accessibility",
-                detail: "Sends the paste keystroke after the reply is ready, so there is no preview or manual paste step.",
-                isEnabled: appState.accessibilityEnabled
-            )
-
-            Button {
-                openNextPermission()
-            } label: {
-                HStack {
-                    Image(systemName: nextPermissionIcon)
-                    Text(nextPermissionTitle)
-                }
-                .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.large)
-
-            Text("After you enable a permission in System Settings, return here. SuperPaste keeps checking and moves on automatically.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            Text("Heads up: macOS shows every screenshot app a monthly “can record your screen” reminder. That's the OS being cautious, not SuperPaste doing anything new — it still captures one frame of one window, only when you press the hotkey.")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
-            if appState.shouldOfferPermissionRelaunch && !appState.screenRecordingEnabled {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("If System Settings already shows SuperPaste enabled, relaunch once to finish applying Screen Recording.")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Button {
-                        appState.relaunchForPermissions()
-                    } label: {
-                        HStack {
-                            Image(systemName: "arrow.clockwise")
-                            Text("Relaunch SuperPaste")
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                }
-                .padding(12)
-                .background(
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.orange.opacity(0.08))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.orange.opacity(0.25), lineWidth: 1)
-                )
-            }
-        }
+    private var screenRecordingCard: some View {
+        PermissionCard(
+            icon: "rectangle.inset.filled.and.cursorarrow",
+            iconColor: appState.screenRecordingEnabled ? .green : .blue,
+            title: "Screen Recording",
+            detail: "Captures one snapshot of the active window only when you press \(HotkeyPreset.current.shortName).",
+            isEnabled: appState.screenRecordingEnabled,
+            actionLabel: appState.screenRecordingEnabled ? nil : "Open System Settings",
+            action: { appState.openScreenRecordingSettings() },
+            recheckLabel: "Check Again",
+            recheckAction: { appState.recheckPermission() },
+            relaunchHint: appState.shouldOfferPermissionRelaunch && !appState.screenRecordingEnabled,
+            relaunchAction: { appState.relaunchForPermissions() }
+        )
     }
 
-    private var footerSection: some View {
+    // MARK: - Accessibility Card
+
+    private var accessibilityCard: some View {
+        PermissionCard(
+            icon: "hand.tap",
+            iconColor: appState.accessibilityEnabled ? .green : .blue,
+            title: "Accessibility",
+            detail: "Sends the paste keystroke after the reply is ready, so there is no preview or manual paste step.",
+            isEnabled: appState.accessibilityEnabled,
+            actionLabel: appState.accessibilityEnabled
+                ? nil
+                : (appState.screenRecordingEnabled ? "Open System Settings" : nil),
+            action: { appState.openAccessibilitySettings() },
+            recheckLabel: "Check Again",
+            recheckAction: { appState.recheckPermission() },
+            relaunchHint: false,
+            relaunchAction: nil
+        )
+    }
+
+    // MARK: - Footer
+
+    private var privacyFooter: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "lock.shield.fill")
                 .foregroundColor(.green)
@@ -149,45 +108,122 @@ struct PermissionsSetupView: View {
             Spacer(minLength: 0)
         }
     }
-
-    private func openNextPermission() {
-        if !appState.screenRecordingEnabled {
-            appState.openScreenRecordingSettings()
-        } else if !appState.accessibilityEnabled {
-            appState.openAccessibilitySettings()
-        } else {
-            appState.recheckPermission()
-        }
-    }
 }
 
-private struct PermissionSetupRow: View {
+// MARK: - Permission Card
+
+private struct PermissionCard: View {
     let icon: String
+    let iconColor: Color
     let title: String
     let detail: String
     let isEnabled: Bool
+    let actionLabel: String?
+    let action: () -> Void
+    let recheckLabel: String
+    let recheckAction: () -> Void
+    let relaunchHint: Bool
+    let relaunchAction: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.title3)
-                .foregroundColor(isEnabled ? .green : .blue)
-                .frame(width: 24)
+        VStack(alignment: .leading, spacing: 12) {
+            // Icon + title + status
+            HStack(alignment: .center) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundColor(iconColor)
+                    .frame(width: 24)
 
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(title)
-                        .font(.headline)
+                Text(title)
+                    .font(.headline)
 
-                    Spacer()
+                Spacer()
 
-                    Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
-                        .foregroundColor(isEnabled ? .green : .secondary)
-                        .font(.subheadline)
-                        .accessibilityLabel(isEnabled ? "Enabled" : "Not enabled")
+                Image(systemName: isEnabled ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(isEnabled ? .green : .secondary)
+                    .font(.subheadline)
+                    .accessibilityLabel(isEnabled ? "\(title) enabled" : "\(title) not enabled")
+            }
+
+            Text(detail)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if !isEnabled {
+                // Action buttons
+                VStack(spacing: 8) {
+                    if let actionLabel {
+                        Button {
+                            action()
+                        } label: {
+                            HStack {
+                                Image(systemName: "gear")
+                                Text(actionLabel)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.large)
+                    }
+
+                    HStack(spacing: 8) {
+                        Button {
+                            recheckAction()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.clockwise")
+                                Text(recheckLabel)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                    }
                 }
 
-                Text(detail)
+                // Relaunch hint — shown when Screen Recording was toggled on
+                // but the capability probe still fails (macOS needs a relaunch).
+                if relaunchHint, let relaunchAction {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label {
+                            Text("If System Settings already shows SuperPaste enabled, relaunch once to finish applying Screen Recording.")
+                                .font(.caption)
+                        } icon: {
+                            Image(systemName: "arrow.triangle.swap")
+                                .foregroundColor(.orange)
+                        }
+                        .foregroundColor(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+
+                        Button {
+                            relaunchAction()
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Relaunch SuperPaste")
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.orange)
+                        .controlSize(.large)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.orange.opacity(0.08))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.orange.opacity(0.25), lineWidth: 1)
+                    )
+                }
+            }
+
+            // Heads-up about the monthly reminder macOS shows for screen-recording apps
+            if title == "Screen Recording" {
+                Text("Heads up: macOS shows every screenshot app a monthly \u{201C}can record your screen\u{201D} reminder. That\u{2019}s the OS being cautious, not SuperPaste doing anything new \u{2014} it still captures one frame of one window, only when you press the hotkey.")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .fixedSize(horizontal: false, vertical: true)

@@ -43,6 +43,8 @@ enum PermissionStatusReporter {
         return status.isReady ? 0 : 1
     }
 
+    /// Matches PermissionManager.checkPermission() exactly — CGPreflight
+    /// first, then the capability probe (reading other apps' window names).
     private static func screenRecordingEnabled() -> Bool {
         if CGPreflightScreenCaptureAccess() {
             return true
@@ -68,14 +70,22 @@ enum PermissionStatusReporter {
         }
     }
 
+    /// Creates a head-insert, consuming event tap — the exact same parameters
+    /// the real hotkey uses. A listen-only or tail-append tap can succeed when
+    /// Accessibility isn't sufficient for the real hotkey, producing false
+    /// "ready" reports.
     private static func hotkeyEventTapAvailable() -> Bool {
         let mask = CGEventMask(1 << CGEventType.keyDown.rawValue)
         let tap = CGEvent.tapCreate(
             tap: .cgSessionEventTap,
-            place: .tailAppendEventTap,
-            options: .listenOnly,
+            place: .headInsertEventTap,
+            options: .defaultTap,
             eventsOfInterest: mask,
-            callback: { _, _, event, _ in Unmanaged.passUnretained(event) },
+            callback: { _, _, event, _ in
+                // Don't consume the event during probe — we're only checking
+                // if the tap CAN be created, not actually intercepting keys.
+                Unmanaged.passUnretained(event)
+            },
             userInfo: nil
         )
 

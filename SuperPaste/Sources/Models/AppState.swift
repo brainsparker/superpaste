@@ -38,7 +38,8 @@ final class AppState: ObservableObject {
     /// Whether Accessibility permission is granted
     @Published private(set) var accessibilityEnabled = false
 
-    /// Whether to offer a relaunch after Screen Recording was requested but is not usable yet.
+    /// Whether to offer a relaunch after Screen Recording was requested but the capability
+    /// probe still fails. Derived from PermissionManager's heuristic.
     @Published private(set) var shouldOfferPermissionRelaunch = false
 
     /// Days remaining in free trial. nil when licensed or using own key (no badge shown).
@@ -165,6 +166,13 @@ final class AppState: ObservableObject {
             }
             .store(in: &cancellables)
 
+        permissionManager.$mayNeedRelaunch
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] value in
+                self?.shouldOfferPermissionRelaunch = value
+            }
+            .store(in: &cancellables)
+
         permissionManager.$accessibilityEnabled
             .receive(on: DispatchQueue.main)
             .sink { [weak self] enabled in
@@ -238,9 +246,7 @@ final class AppState: ObservableObject {
     func updateState() {
         screenRecordingEnabled = permissionManager.checkPermission()
         accessibilityEnabled = permissionManager.checkAccessibilityPermission()
-        if screenRecordingEnabled {
-            shouldOfferPermissionRelaunch = false
-        }
+        shouldOfferPermissionRelaunch = permissionManager.mayNeedRelaunch
         refreshHotkeyRegistrationIfPossible()
         updateMainWindowState()
     }
@@ -609,7 +615,6 @@ final class AppState: ObservableObject {
     // MARK: - Permissions helpers
 
     func openScreenRecordingSettings() {
-        shouldOfferPermissionRelaunch = true
         permissionManager.openScreenRecordingSettings()
     }
 
@@ -617,6 +622,8 @@ final class AppState: ObservableObject {
         permissionManager.openAccessibilitySettings()
     }
 
+    /// Immediate re-check — called when the user clicks "Check Again" so they
+    /// don't have to wait for the next poll cycle.
     func recheckPermission() {
         updateState()
     }

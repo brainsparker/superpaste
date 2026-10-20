@@ -2,6 +2,30 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!--
+     App Sandbox must be DISABLED for SuperPaste to function.
+     
+     SuperPaste relies on several APIs that are incompatible with App Sandbox:
+     
+     1. CGEvent.tapCreate(.cgSessionEventTap, ...) — required for the global
+        Option+V hotkey. Sandboxed apps cannot create session-level event taps.
+     
+     2. CGWindowListCreateImage / ScreenCaptureKit — required to capture the
+        active window. Sandboxed apps can only capture their own windows.
+     
+     3. AXIsProcessTrusted / AXUIElementCopyAttributeValue — required for
+        Accessibility permission checks and focused-element detection.
+     
+     4. The CGEvent post(tap:) call for the synthetic ⌘V paste.
+     
+     5. SMAppService.register/unregister — Login Item management requires
+        the app to be outside the sandbox.
+     
+     All of these are declared in the Info.plist usage descriptions and
+     governed by macOS TCC (Transparency, Consent, and Control) — the user
+     grants Screen Recording and Accessibility permissions explicitly
+     through System Settings.
+    -->
     <key>com.apple.security.app-sandbox</key>
     <false/>
 </dict>
