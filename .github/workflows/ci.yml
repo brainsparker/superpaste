@@ -32,6 +32,11 @@ jobs:
       - name: Dump crash reports
         if: failure()
         run: |
+          sleep 10
+          B=$(swift build --show-bin-path)
+          ls "$B"
+          DYLD_PRINT_LIBRARIES=0 xcrun xctest "$B/SuperPastePackageTests.xctest" 2>&1 | tail -40 || true
+          "$B/SuperPastePackageTests.xctest/Contents/MacOS/SuperPastePackageTests" 2>&1 | tail -40 || true
           ls -la ~/Library/Logs/DiagnosticReports/ || true
           for f in ~/Library/Logs/DiagnosticReports/*.ips; do echo "=== $f"; head -c 20000 "$f"; done || true
 
