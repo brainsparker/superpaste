@@ -32,11 +32,10 @@ jobs:
       - name: Dump crash reports
         if: failure()
         run: |
-          B=$(swift build --show-bin-path)
-          H="$(dirname "$(xcrun -f swift)")/swiftpm-testing-helper"
-          ls -la "$H" || true
-          swift test --disable-xctest -v 2>&1 | tail -30 || true
-          lldb --batch -o run -o "bt 30" -o "thread list" -- "$H" --test-bundle-path "$B/SuperPastePackageTests.xctest/Contents/MacOS/SuperPastePackageTests" --testing-library swift-testing 2>&1 | grep -v 'started\.$' | tail -80 || true
+          for S in APIConfigTests DeviceIDTests HUDPositionTests KeyboardLayoutTests PasteFailureTests PasteTransactionTests PasteboardIntegrationTests ReadyCardStateTests ResponseSettingsTests SensitiveContextGuardTests; do
+            echo "##### $S"
+            swift test --skip-build --disable-xctest --filter "$S" 2>&1 | grep -vE 'started\.$' | tail -6 || true
+          done
           ls -la ~/Library/Logs/DiagnosticReports/ || true
           for f in ~/Library/Logs/DiagnosticReports/*.ips; do echo "=== $f"; head -c 20000 "$f"; done || true
 
