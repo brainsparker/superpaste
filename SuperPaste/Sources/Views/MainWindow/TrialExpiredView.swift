@@ -74,7 +74,7 @@ struct TrialExpiredView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Prefer not to subscribe? Add your own API key in Settings and SuperPaste stays free forever. Choose from Anthropic, OpenAI, OpenRouter, or a custom endpoint.")
+            Text("Prefer not to subscribe? SuperPaste stays free forever with your own setup in Settings: an Anthropic, OpenAI, or OpenRouter key, or a model running on this Mac through Ollama or LM Studio (no key, no account).")
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
