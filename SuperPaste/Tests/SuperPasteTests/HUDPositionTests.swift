@@ -11,8 +11,8 @@ struct HUDPositionTests {
             screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
             margin: 16
         )
-        #expect(origin.x == 1440 - 300 - 16)
-        #expect(origin.y == 900 - 200 - 16)
+        #expect(origin.x == CGFloat(1440 - 300 - 16))
+        #expect(origin.y == CGFloat(900 - 200 - 16))
     }
 
     @Test func topLeftOriginUsesMinXAndMaxY() {
@@ -22,8 +22,8 @@ struct HUDPositionTests {
             screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
             margin: 16
         )
-        #expect(origin.x == 0 + 16)
-        #expect(origin.y == 900 - 200 - 16)
+        #expect(origin.x == CGFloat(0 + 16))
+        #expect(origin.y == CGFloat(900 - 200 - 16))
     }
 
     @Test func bottomRightOriginUsesMaxXAndMinY() {
@@ -33,8 +33,8 @@ struct HUDPositionTests {
             screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
             margin: 16
         )
-        #expect(origin.x == 1440 - 300 - 16)
-        #expect(origin.y == 0 + 16)
+        #expect(origin.x == CGFloat(1440 - 300 - 16))
+        #expect(origin.y == CGFloat(0 + 16))
     }
 
     @Test func bottomLeftOriginUsesMinXAndMinY() {
@@ -44,8 +44,8 @@ struct HUDPositionTests {
             screenFrame: CGRect(x: 0, y: 0, width: 1440, height: 900),
             margin: 16
         )
-        #expect(origin.x == 0 + 16)
-        #expect(origin.y == 0 + 16)
+        #expect(origin.x == CGFloat(0 + 16))
+        #expect(origin.y == CGFloat(0 + 16))
     }
 
     @Test func defaultMarginIs16() {
