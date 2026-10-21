@@ -21,8 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+      # Package.swift links the swift-testing framework from the Command Line
+      # Tools. Building with Xcode's toolchain loads a second, mismatched copy
+      # of Testing at runtime: #expect reports equal values as failures and the
+      # runner aborts (signal 6). Use the CLT toolchain so they match.
+      - name: Select Command Line Tools
+        run: |
+          sudo xcode-select -s /Library/Developer/CommandLineTools
+          swift --version
+          ls /Library/Developer/CommandLineTools/Library/Developer/Frameworks
 
       - name: Build and test
         run: swift test
