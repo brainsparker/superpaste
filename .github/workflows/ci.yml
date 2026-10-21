@@ -29,16 +29,6 @@ jobs:
       - name: Build and test
         run: swift test
 
-      - name: Dump crash reports
-        if: failure()
-        run: |
-          for S in APIConfigTests DeviceIDTests HUDPositionTests KeyboardLayoutTests PasteFailureTests PasteTransactionTests PasteboardIntegrationTests ReadyCardStateTests ResponseSettingsTests SensitiveContextGuardTests; do
-            echo "##### $S"
-            swift test --skip-build --disable-xctest --filter "$S" 2>&1 | grep -vE 'started\.$' | tail -6 || true
-          done
-          ls -la ~/Library/Logs/DiagnosticReports/ || true
-          for f in ~/Library/Logs/DiagnosticReports/*.ips; do echo "=== $f"; head -c 20000 "$f"; done || true
-
   server-tests:
     name: Server Tests (Node)
     runs-on: ubuntu-latest
