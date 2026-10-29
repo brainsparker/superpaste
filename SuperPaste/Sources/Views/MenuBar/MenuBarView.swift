@@ -66,7 +66,7 @@ struct MenuBarView: View {
             Text("Paused — hotkey released")
         } else if appState.isProcessing {
             Text("Working…")
-        } else if let provider = UserCredentialStore.activeProvider {
+        } else if let provider = UserCredentialStore.activeProvider(for: appState.providerConfig) {
             Text("Ready (\(provider.displayName)) — \(HotkeyPreset.current.shortName)")
         } else if appState.isLicensed {
             Text("Ready — \(HotkeyPreset.current.shortName)")

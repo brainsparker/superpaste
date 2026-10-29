@@ -23,6 +23,13 @@ final class LLMService {
         case truncatedResponse
         case invalidAPIKey
         case providerNotConfigured
+        /// A local or custom server did not answer at all (connection refused).
+        /// Carries the host:port so the message can say where we looked.
+        case localServerUnreachable(String)
+        /// The server answered but does not have the requested model installed.
+        case modelNotFound(String)
+        /// A local or custom server reports no installed models at all.
+        case noModelsAvailable
 
         var errorDescription: String? {
             switch self {
@@ -54,6 +61,12 @@ final class LLMService {
                 return "The API key was rejected."
             case .providerNotConfigured:
                 return "No provider is configured. Add an API key in Settings."
+            case .localServerUnreachable(let host):
+                return "No server is answering at \(host)."
+            case .modelNotFound(let model):
+                return "Model \(model) is not available on the server."
+            case .noModelsAvailable:
+                return "The server has no models installed."
             }
         }
 
@@ -85,6 +98,12 @@ final class LLMService {
                 return "Your API key was rejected \u{2014} check it in Settings."
             case .providerNotConfigured:
                 return "No API key has been saved for this provider \u{2014} add one in Settings."
+            case .localServerUnreachable(let host):
+                return "Nothing is running at \(host). Start your local model server, then try again."
+            case .modelNotFound(let model):
+                return "Your server doesn't have \(model). Pull it first, or pick an installed model in Settings."
+            case .noModelsAvailable:
+                return "Your local server has no models yet. Pull a vision model (for example qwen3-vl) and try again."
             }
         }
     }
@@ -171,21 +190,53 @@ final class LLMService {
                 context: context,
                 base64Image: base64Image
             )
-        case .custom:
-            guard let key = UserCredentialStore.apiKey(for: .custom) else {
+        case .ollama, .lmstudio, .custom:
+            // Endpoint-configured providers. Local servers need no key; a
+            // custom endpoint may have one saved, which is sent when present.
+            guard let endpoint = config.resolvedEndpoint else {
                 throw LLMError.providerNotConfigured
             }
-            guard !config.customEndpoint.isEmpty else {
-                throw LLMError.providerNotConfigured
-            }
+            let apiKey = UserCredentialStore.apiKey(for: config.provider)
+            let model = try await resolveModel(for: config, endpoint: endpoint, apiKey: apiKey)
             return try await processWithOpenAICompatible(
-                baseURL: config.customEndpoint,
-                apiKey: key,
-                model: config.model.isEmpty ? "gpt-4o" : config.model,
+                baseURL: endpoint,
+                apiKey: apiKey,
+                model: model,
                 context: context,
                 base64Image: base64Image
             )
         }
+    }
+
+    /// The model to request from an endpoint-configured provider. When the
+    /// user left the field empty, ask the server what it has and prefer a
+    /// vision-capable model, so a fresh Ollama install works with zero typing.
+    private func resolveModel(
+        for config: LLMProviderConfig,
+        endpoint: String,
+        apiKey: String?
+    ) async throws -> String {
+        let trimmed = config.model.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { return trimmed }
+        guard config.provider.supportsModelDiscovery else { return "gpt-4o" }
+
+        let models: [LocalModelServer.Model]
+        do {
+            models = try await LocalModelServer.listModels(chatCompletionsURL: endpoint, apiKey: apiKey)
+        } catch LocalModelServer.ListError.unreachable where config.provider.isLocal {
+            throw LLMError.localServerUnreachable(LocalEndpoint.displayHost(endpoint))
+        } catch LocalModelServer.ListError.unauthorized {
+            throw LLMError.invalidAPIKey
+        } catch {
+            // Custom gateways without a model list (or briefly unreachable ones)
+            // still deserve a sensible default; the chat call reports its own errors.
+            if config.provider == .custom { return "gpt-4o" }
+            throw LLMError.noModelsAvailable
+        }
+        guard let picked = LocalModelServer.pickDefaultModel(from: models.map(\.id)) else {
+            throw LLMError.noModelsAvailable
+        }
+        return picked
     }
 
     // MARK: - SuperPaste hosted backend
@@ -440,7 +491,7 @@ final class LLMService {
 
     private func processWithOpenAICompatible(
         baseURL: String,
-        apiKey: String,
+        apiKey: String?,
         model: String,
         context: ScreenCaptureService.CapturedContext,
         base64Image: String
@@ -478,7 +529,11 @@ final class LLMService {
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        // Local servers (Ollama, LM Studio) accept requests with no key at all,
+        // so the header is only sent when the user saved one.
+        if let apiKey, !apiKey.isEmpty {
+            urlRequest.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
         // Attribution — lets every provider identify SuperPaste traffic.
         Self.applyAttributionHeaders(&urlRequest)
 
@@ -491,7 +546,20 @@ final class LLMService {
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
-        let (data, response) = try await performRequest(urlRequest)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await performRequest(urlRequest)
+        } catch LLMError.networkError(let underlying) {
+            // A refused connection on a local endpoint means the server isn't
+            // running, which deserves a more useful message than "network error".
+            if let urlError = underlying as? URLError,
+               urlError.code == .cannotConnectToHost || urlError.code == .cannotFindHost,
+               LocalEndpoint.isLoopback(baseURL) {
+                throw LLMError.localServerUnreachable(LocalEndpoint.displayHost(baseURL))
+            }
+            throw LLMError.networkError(underlying)
+        }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw LLMError.invalidResponse
@@ -500,7 +568,17 @@ final class LLMService {
         if httpResponse.statusCode == 401 {
             throw LLMError.invalidAPIKey
         }
+        if httpResponse.statusCode == 404 {
+            // Ollama answers 404 with "model 'x' not found, try pulling it first".
+            // LM Studio uses the same status for an unloaded model.
+            throw LLMError.modelNotFound(model)
+        }
         guard (200...299).contains(httpResponse.statusCode) else {
+            if let apiError = try? JSONDecoder().decode(OpenAIResponse.self, from: data).error,
+               let message = apiError.message?.lowercased(),
+               message.contains("not found") || message.contains("no model") || message.contains("not loaded") {
+                throw LLMError.modelNotFound(model)
+            }
             throw LLMError.serverError(httpResponse.statusCode)
         }
 
