@@ -28,6 +28,13 @@ struct PasteFailure: Equatable {
             (code, recovery) = (.providerConfiguration, .openSettings)
         case .localServerUnreachable:
             (code, recovery) = (.network, .retry)
+        case .campaignBlocked:
+            // Retrying regenerates the draft, which may pass the guardrail.
+            (code, recovery) = (.providerResponse, .retry)
+        case .campaignExpired, .campaignInvalid:
+            (code, recovery) = (.providerResponse, nil)
+        case .shareUnavailableInBYOKMode:
+            (code, recovery) = (.providerConfiguration, .openSettings)
         case .imageEncodingFailed, .unclearContext:
             (code, recovery) = (.capture, nil)
         }

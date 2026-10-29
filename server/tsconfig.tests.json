@@ -1,0 +1,12 @@
+// Typecheck config for the test suite.
+//
+// Separate from tsconfig.json so `node:test`, `node:assert`, and Buffer are
+// available to tests without adding Node globals to the Worker sources — a
+// Worker that accidentally used Buffer would still fail the main typecheck.
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "@cloudflare/workers-types"]
+  },
+  "include": ["tests/**/*.ts"]
+}

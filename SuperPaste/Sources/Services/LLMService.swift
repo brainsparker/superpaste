@@ -30,6 +30,14 @@ final class LLMService {
         case modelNotFound(String)
         /// A local or custom server reports no installed models at all.
         case noModelsAvailable
+        /// Magic Copy: the share link's campaign has ended.
+        case campaignExpired
+        /// Magic Copy: the link isn't a usable campaign.
+        case campaignInvalid
+        /// Magic Copy: the draft broke a campaign guardrail; nothing is pasted.
+        case campaignBlocked(String)
+        /// Magic Copy needs the SuperPaste backend, not a bring-your-own provider.
+        case shareUnavailableInBYOKMode
 
         var errorDescription: String? {
             switch self {
@@ -67,6 +75,14 @@ final class LLMService {
                 return "Model \(model) is not available on the server."
             case .noModelsAvailable:
                 return "The server has no models installed."
+            case .campaignExpired:
+                return "This Smart Share link has expired."
+            case .campaignInvalid:
+                return "This Smart Share link isn't valid."
+            case .campaignBlocked(let reason):
+                return reason
+            case .shareUnavailableInBYOKMode:
+                return "Magic Copy needs the SuperPaste backend."
             }
         }
 
@@ -104,6 +120,14 @@ final class LLMService {
                 return "Your server doesn't have \(model). Pull it first, or pick an installed model in Settings."
             case .noModelsAvailable:
                 return "Your local server has no models yet. Pull a vision model (for example qwen3-vl) and try again."
+            case .campaignExpired:
+                return "This Smart Share link has expired \u{2014} ask whoever sent it for a new one."
+            case .campaignInvalid:
+                return "That Smart Share link isn't valid \u{2014} copy the whole link and try again."
+            case .campaignBlocked(let reason):
+                return reason
+            case .shareUnavailableInBYOKMode:
+                return "Magic Copy works through the SuperPaste service \u{2014} switch your provider in Settings to use it."
             }
         }
     }
@@ -254,8 +278,20 @@ final class LLMService {
         let personal_context: String?
     }
 
+    /// Magic Copy: a Smart Share campaign link plus where the user is posting.
+    /// No screenshot — the campaign supplies the content and the frontmost app
+    /// supplies the destination. The Worker decodes the campaign, picks the
+    /// platform, and owns the prompt.
+    private struct ShareRequest: Encodable {
+        let share_link: String
+        let bundle_id: String?
+        let app_name: String?
+        let window_title: String?
+    }
+
     private struct WorkerErrorResponse: Decodable {
         let error: String?
+        let message: String?
     }
 
     private func processWithSuperPaste(
@@ -286,6 +322,59 @@ final class LLMService {
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
+        return try await sendHostedRequest(urlRequest)
+    }
+
+    /// Magic Copy: write a post for the Smart Share campaign on the clipboard,
+    /// aimed at whatever app the user is in.
+    ///
+    /// Goes through the SuperPaste backend on the same `/v1/messages` route as a
+    /// normal paste, so it is metered by the same trial and license limits. The
+    /// Worker decodes the campaign, picks the platform from the window metadata,
+    /// and owns the prompt — the app deliberately knows none of that.
+    func processShareCampaign(
+        link: String,
+        target: ScreenCaptureService.WindowTarget
+    ) async throws -> String {
+        // Bring-your-own and local providers talk straight to their own endpoint
+        // and never reach the Worker, so they cannot get the campaign prompt.
+        // Fail clearly instead of quietly pasting something unrelated.
+        guard Self.currentConfig().provider == .superpaste else {
+            throw LLMError.shareUnavailableInBYOKMode
+        }
+
+        let request = ShareRequest(
+            share_link: link,
+            bundle_id: target.bundleIdentifier,
+            app_name: target.appName,
+            window_title: target.windowTitle?.isEmpty == false ? target.windowTitle : nil
+        )
+
+        guard let url = URL(string: APIConfig.baseURL) else {
+            throw LLMError.invalidResponse
+        }
+
+        var urlRequest = URLRequest(url: url)
+        urlRequest.httpMethod = "POST"
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        Self.applyAttributionHeaders(&urlRequest)
+        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
+            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
+        }
+        urlRequest.timeoutInterval = APIConfig.timeoutInterval
+
+        do {
+            urlRequest.httpBody = try JSONEncoder().encode(request)
+        } catch {
+            throw LLMError.invalidResponse
+        }
+
+        return try await sendHostedRequest(urlRequest)
+    }
+
+    /// Shared tail of every hosted-backend call: status mapping and the
+    /// Anthropic-shaped response parse. Used by normal pastes and Magic Copy.
+    private func sendHostedRequest(_ urlRequest: URLRequest) async throws -> String {
         let (data, response) = try await performRequest(urlRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
@@ -299,6 +388,20 @@ final class LLMService {
             throw LLMError.trialExpired
         case 403:
             throw LLMError.licenseInvalid
+        case 422:
+            // Magic Copy only: the campaign link is unusable, or the draft broke
+            // one of the campaign's guardrails and must not be pasted.
+            let body = try? JSONDecoder().decode(WorkerErrorResponse.self, from: data)
+            switch body?.error {
+            case "campaign_expired":
+                throw LLMError.campaignExpired
+            case "campaign_blocked":
+                throw LLMError.campaignBlocked(
+                    body?.message ?? "That draft broke one of the campaign's rules \u{2014} nothing was pasted."
+                )
+            default:
+                throw LLMError.campaignInvalid
+            }
         case 429:
             if let errorBody = try? JSONDecoder().decode(WorkerErrorResponse.self, from: data),
                errorBody.error == "rate_limited" {
