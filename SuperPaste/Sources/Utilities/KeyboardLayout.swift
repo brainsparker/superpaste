@@ -13,6 +13,11 @@ enum KeyboardLayout {
     /// Key code that produces `character` (unmodified) on the current layout,
     /// or nil if the layout has no such key.
     static func keyCode(for character: Character) -> CGKeyCode? {
+        // Text Input Source APIs assert they run on the main queue and abort
+        // (SIGABRT) otherwise, e.g. under the parallel Swift Testing runner.
+        guard Thread.isMainThread else {
+            return DispatchQueue.main.sync { keyCode(for: character) }
+        }
         guard let inputSource = TISCopyCurrentKeyboardLayoutInputSource()?.takeRetainedValue(),
               let layoutDataRef = TISGetInputSourceProperty(inputSource, kTISPropertyUnicodeKeyLayoutData) else {
             return nil
