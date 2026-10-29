@@ -21,4 +21,4 @@ SuperPaste.app/
 SuperPaste Dev.app/
 
 # Wrangler
-server/.wrangler/.wrangler/
+.wrangler/
