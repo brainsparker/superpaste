@@ -240,6 +240,14 @@ npm run typecheck
 
 Tests cover schema validation, link parsing, prompt construction, platform config, platform detection, and the full Magic Copy path through `/v1/messages` with a stubbed model — including that it consumes the same quota and is refused by the same trial and rate limits as a normal paste.
 
+## Hosted backend: upstream retry
+
+The hosted backend retries transient Anthropic failures before giving up, the same way Anthropic's own SDKs do: `529 overloaded_error`, `500`/`502`/`503`/`504`, `408`/`409`, dropped connections, and a `429` that carries a short `Retry-After`. Two retries by default, with an equal-jitter backoff (200 to 400 ms, then 400 to 800 ms) so recovering Workers do not all hit Anthropic on the same beat. Every attempt shares the original 60-second request budget, so a retry can never make a paste wait longer than a single attempt could before. A `400`, `401`, `403`, `413`, or a `429` without `Retry-After` (a spend or acceleration limit) is passed through untouched on the first attempt.
+
+If Anthropic is still overloaded after the retries, the Worker answers `503` with `{"error": "upstream_overloaded"}` and `Retry-After: 5` instead of forwarding a bare `529`. Every `/v1/messages` response carries `X-SuperPaste-Upstream-Attempts` so retries are visible in logs. One paste costs one unit of daily quota no matter how many attempts it took.
+
+Tune without a code change in `server/wrangler.toml`: `UPSTREAM_MAX_RETRIES` (default `"2"`, `"0"` disables retry) and `UPSTREAM_RETRY_BASE_MS` (default `"400"`). Logic and tests live in `server/src/upstream.ts`, `server/tests/upstream.test.ts`, and `server/tests/retry.test.ts`.
+
 ## Privacy
 
 - SuperPaste captures one active-window screenshot only when you press Option+V.
