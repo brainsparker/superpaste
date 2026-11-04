@@ -20,6 +20,7 @@ import { buildSmartSharePrompt, finalizeShareCopy } from "./smartshare/prompt.ts
 import { EncodedLinkCampaignProvider } from "./smartshare/provider.ts";
 import { handleSmartShareRequest, type SmartShareEnv } from "./smartshare/routes.ts";
 import { SmartShareError, type SmartShareCampaign, type SmartSharePlatform } from "./smartshare/schema.ts";
+import { DEFAULT_RETRY_POLICY, fetchWithRetry, retryPolicyFromEnv } from "./upstream.ts";
 
 interface RateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>;
@@ -36,6 +37,9 @@ export interface Env extends SmartShareEnv {
   /** Daily request ceilings, split so trial abuse can never lock out paying customers. */
   GLOBAL_TRIAL_DAILY_LIMIT?: string;
   GLOBAL_LICENSED_DAILY_LIMIT?: string;
+  /** Upstream retry knobs (see src/upstream.ts). Defaults: 2 retries, 400ms base window. */
+  UPSTREAM_MAX_RETRIES?: string;
+  UPSTREAM_RETRY_BASE_MS?: string;
   /** Optional owner/developer bypass key. Set via `wrangler secret put OWNER_LICENSE_KEY`.
    *  When the presented license key equals this value, validation succeeds without
    *  calling Polar — used by the creator to exercise the app without a paid license.
@@ -46,6 +50,10 @@ export interface Env extends SmartShareEnv {
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION = "2023-06-01";
 const ANTHROPIC_TIMEOUT_MS = 60_000;
+/** Sent on every /v1/messages response so retries are visible in logs and client debugging. */
+const ATTEMPTS_HEADER = "X-SuperPaste-Upstream-Attempts";
+/** Suggested wait after the retry budget is spent on 529s. Anthropic does not send one itself. */
+const OVERLOADED_RETRY_AFTER_SECONDS = 5;
 
 const MODEL = "claude-sonnet-5-5";
 const MAX_TOKENS = 2048;
@@ -114,10 +122,10 @@ interface ShareRequest {
 const MAX_SHARE_LINK_CHARS = 8192;
 
 // --- Helper: JSON response ---
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...extraHeaders },
   });
 }
 
@@ -522,9 +530,13 @@ export default {
       ? buildShareAnthropicBody(shareCampaign, sharePlatform)
       : buildPasteAnthropicBody(pasteReq!);
 
-    let anthropicResponse: Response;
-    try {
-      anthropicResponse = await fetch(ANTHROPIC_MESSAGES_URL, {
+    // One bounded retry loop absorbs 529 overloaded_error, 5xx blips, and
+    // dropped connections (the same set Anthropic's SDKs retry by default).
+    // The whole loop shares the original 60s budget, so the app never waits
+    // longer than it did when a single attempt could hang that long.
+    const upstream = await fetchWithRetry(
+      ANTHROPIC_MESSAGES_URL,
+      {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -533,18 +545,46 @@ export default {
           "anthropic-beta": "server-side-fallback-2026-07-01",
         },
         body: JSON.stringify(anthropicBody),
-        signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
-      });
-    } catch (err) {
-      console.error("Anthropic request failed:", err);
-      return json({ error: "upstream_error", message: "The AI service didn't respond. Try again." }, 502);
+      },
+      retryPolicyFromEnv(env, { ...DEFAULT_RETRY_POLICY, deadlineMs: ANTHROPIC_TIMEOUT_MS, attemptTimeoutMs: ANTHROPIC_TIMEOUT_MS }),
+      {
+        onRetry: ({ attempt, status, delayMs, requestId }) =>
+          console.warn(
+            `Anthropic attempt ${attempt} ${status === null ? "threw" : `returned ${status}`}` +
+              `${requestId ? ` (request-id ${requestId})` : ""}, retrying in ${delayMs}ms`,
+          ),
+      },
+    );
+    const attemptsHeader = { [ATTEMPTS_HEADER]: String(upstream.attempts) };
+
+    if (!upstream.response) {
+      console.error(`Anthropic request failed after ${upstream.attempts} attempt(s):`, upstream.error);
+      return json(
+        { error: "upstream_error", message: "The AI service didn't respond. Try again." },
+        502,
+        attemptsHeader,
+      );
     }
+    const anthropicResponse = upstream.response;
 
     // Every request that reached Anthropic counts against the caps — success
     // or not. Counting only successes would let a stream of upstream-rejected
     // requests generate unbounded Anthropic traffic that no cap ever sees.
-    // (Requests rejected before the upstream call still cost nothing.)
+    // (Requests rejected before the upstream call still cost nothing.) One
+    // user request is one count no matter how many attempts it took.
     ctx.waitUntil(Promise.all([bumpCounter(deviceUsageKey, env), bumpCounter(globalUsageKey, env)]));
+
+    // Retries are spent and Anthropic is still overloaded. Say so plainly
+    // instead of forwarding a bare 529 the app can only render as a server
+    // error code, and give it a wait that is honest about what just happened.
+    if (anthropicResponse.status === 529) {
+      console.error(`Anthropic still overloaded after ${upstream.attempts} attempt(s)`);
+      return json(
+        { error: "upstream_overloaded", message: "The AI service is busy right now. Try again in a few seconds." },
+        503,
+        { ...attemptsHeader, "Retry-After": String(OVERLOADED_RETRY_AFTER_SECONDS) },
+      );
+    }
 
     const rawResponseBody = await anthropicResponse.text();
 
@@ -558,6 +598,7 @@ export default {
         return json(
           { error: "upstream_error", message: "Couldn't write the post. Try again." },
           502,
+          attemptsHeader,
         );
       }
 
@@ -571,7 +612,7 @@ export default {
     const responseBody = textBlocksOnly(rawResponseBody, anthropicResponse.ok);
     return new Response(responseBody, {
       status: anthropicResponse.status,
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...attemptsHeader },
     });
   },
 };
