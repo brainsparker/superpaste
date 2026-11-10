@@ -3,14 +3,14 @@ import Foundation
 @MainActor
 enum PasteTransaction {
     enum Outcome: Equatable {
-        case pasted, destinationChanged, clipboardChanged, pasteUnavailable, cancelled
+        case pasted, destinationChanged, clipboardChanged, clipboardUnavailable, pasteUnavailable, cancelled
     }
 
     static func run(
         isCurrent: () -> Bool,
         destinationMatches: () -> Bool,
         clipboardMatches: () -> Bool,
-        prepareClipboard: () -> Void,
+        prepareClipboard: () -> Bool,
         restoreClipboard: () -> Void,
         paste: () -> Bool,
         wait: () async throws -> Void = { try await Task.sleep(for: .milliseconds(50)) }
@@ -18,7 +18,10 @@ enum PasteTransaction {
         guard isCurrent() else { return .cancelled }
         guard destinationMatches() else { return .destinationChanged }
         guard clipboardMatches() else { return .clipboardChanged }
-        prepareClipboard()
+        guard prepareClipboard() else {
+            if clipboardMatches() { restoreClipboard() }
+            return .clipboardUnavailable
+        }
         do {
             try await wait()
             try Task.checkCancellation()

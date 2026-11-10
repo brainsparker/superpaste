@@ -22,3 +22,7 @@ SuperPaste Dev.app/
 
 # Wrangler
 .wrangler/
+
+# Python release-policy test caches
+__pycache__/
+*.py[cod]

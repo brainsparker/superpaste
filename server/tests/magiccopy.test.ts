@@ -1,3 +1,6 @@
+import { quotaNamespace } from "./quota-harness.ts";
+import { trialPrincipal } from "../src/quota.ts";
+import { PNG } from "./image-fixtures.ts";
 /**
  * End-to-end tests for Magic Copy.
  *
@@ -28,6 +31,9 @@ function fakeKV(initial: Record<string, string> = {}) {
   };
 }
 
+const TEST_SECRET = "test-secret-at-least-32-characters-long";
+const PRINCIPAL = await trialPrincipal("192.0.2.1", TEST_SECRET);
+
 const allowLimiter = { limit: async () => ({ success: true }) };
 
 function env(overrides: Partial<Env> = {}): Env {
@@ -36,6 +42,8 @@ function env(overrides: Partial<Env> = {}): Env {
     POLAR_ACCESS_TOKEN: "polar-token",
     POLAR_ORGANIZATION_ID: "org",
     SUPERPASTE_KV: fakeKV() as unknown as KVNamespace,
+    QUOTA_LEDGER: quotaNamespace().namespace,
+    TRIAL_IDENTITY_SECRET: TEST_SECRET,
     IP_LIMITER: allowLimiter,
     VALIDATE_LIMITER: allowLimiter,
     ...overrides,
@@ -56,7 +64,7 @@ function fakeCtx() {
 async function callWorker(body: unknown, environment: Env = env(), deviceId = "device-1") {
   const request = new Request("https://api.superpaste.ai/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Device-ID": deviceId },
+    headers: { "Content-Type": "application/json", "X-Device-ID": deviceId, "CF-Connecting-IP": "192.0.2.1" },
     body: JSON.stringify(body),
   });
   const { ctx, pending } = fakeCtx();
@@ -228,7 +236,7 @@ test("a draft using a prohibited claim is blocked, not pasted", async () => {
   assert.equal(response.status, 422);
   const data = (await response.json()) as { error: string; message: string };
   assert.equal(data.error, "campaign_blocked");
-  assert.match(data.message, /prohibits/);
+  assert.match(data.message, /blocked campaign phrase/);
 });
 
 test("an empty draft is blocked rather than pasting nothing over the clipboard", async () => {
@@ -267,13 +275,13 @@ test("a malformed share link is refused without calling the model", async () => 
 
 test("a bad link does not consume the user's daily quota", async () => {
   stubAnthropic("A post.");
-  const kv = fakeKV();
-  const environment = env({ SUPERPASTE_KV: kv as unknown as KVNamespace });
+  const quota = quotaNamespace();
+  const environment = env({ QUOTA_LEDGER: quota.namespace });
 
   await callWorker({ share_link: "https://superpaste.ai/share#c=garbage" }, environment);
 
   const day = new Date().toISOString().slice(0, 10);
-  assert.equal(kv.store.get(`device:device-1:usage:${day}`), undefined);
+  assert.equal(quota.store.get(`usage:${day}:${PRINCIPAL}`), undefined);
 });
 
 test("an oversized share_link is rejected as a bad request", async () => {
@@ -287,22 +295,21 @@ test("an oversized share_link is rejected as a bad request", async () => {
 
 test("a successful Magic Copy consumes the user's daily quota", async () => {
   stubAnthropic("A post. https://superpaste.ai/");
-  const kv = fakeKV();
-  const environment = env({ SUPERPASTE_KV: kv as unknown as KVNamespace });
+  const quota = quotaNamespace();
+  const environment = env({ QUOTA_LEDGER: quota.namespace });
   const link = await createShareLink(DRAFT);
 
   await callWorker({ share_link: link, bundle_id: "com.google.Chrome" }, environment);
 
   const day = new Date().toISOString().slice(0, 10);
-  assert.equal(kv.store.get(`device:device-1:usage:${day}`), "1");
-  assert.equal(kv.store.get(`global:trial:usage:${day}`), "1");
+  assert.equal(quota.store.get(`usage:${day}:${PRINCIPAL}`), 1);
+  assert.equal(quota.store.get(`global:${day}`), 1);
 });
 
 test("Magic Copy is refused once the device's trial has expired", async () => {
   stubAnthropic("A post. https://superpaste.ai/");
-  const expiredStart = String(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const kv = fakeKV({ "device:device-1:first_seen": expiredStart });
-  const environment = env({ SUPERPASTE_KV: kv as unknown as KVNamespace });
+  const quota = quotaNamespace({ [`trial:${PRINCIPAL}`]: Date.now() - 30 * 86400_000 });
+  const environment = env({ QUOTA_LEDGER: quota.namespace });
   const link = await createShareLink(DRAFT);
 
   const response = await callWorker({ share_link: link, bundle_id: "com.google.Chrome" }, environment);
@@ -313,8 +320,8 @@ test("Magic Copy is refused once the device's trial has expired", async () => {
 test("Magic Copy is refused once the daily limit is reached", async () => {
   stubAnthropic("A post. https://superpaste.ai/");
   const day = new Date().toISOString().slice(0, 10);
-  const kv = fakeKV({ [`device:device-1:usage:${day}`]: "15" });
-  const environment = env({ SUPERPASTE_KV: kv as unknown as KVNamespace });
+  const quota = quotaNamespace({ [`usage:${day}:${PRINCIPAL}`]: 15 });
+  const environment = env({ QUOTA_LEDGER: quota.namespace });
   const link = await createShareLink(DRAFT);
 
   const response = await callWorker({ share_link: link, bundle_id: "com.google.Chrome" }, environment);
@@ -349,7 +356,7 @@ test("an upstream failure does not leak the upstream body", async () => {
 test("a normal screenshot paste still works and is unaffected", async () => {
   stubAnthropic("Sure, that works for me.");
   const response = await callWorker({
-    image: { data: "AAAA", media_type: "image/jpeg" },
+    image: { data: PNG, media_type: "image/png" },
     app_name: "Slack",
     window_title: "general",
   });

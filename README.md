@@ -4,7 +4,7 @@
 
 SuperPaste is a small native macOS app that captures only the active window when you hit a hotkey, asks the SuperPaste backend for the best response, and pastes it directly at your cursor. No app switching, no prompting, no preview step.
 
-It is fully open source under the MIT license. The hosted service is a **$5/month subscription** (cancel anytime) that covers Claude usage — up to **100 AI responses per day** — plus the signed/notarized DMG and in-app update checks. New installs get a **7-day free trial**: no card required, limited to 15 responses/day.
+It is fully open source under the MIT license. The hosted service is a **$5/month subscription** (cancel anytime) that covers Claude usage — up to **100 AI responses per day** — plus the signed/notarized DMG and in-app update checks. Anonymous trials last **7 days** from first use: no card required, with a shared allowance of 15 responses/day per public network. People behind the same public IP share the trial; changing device IDs does not reset it.
 
 **Don't want to subscribe? Bring your own API key** — Anthropic, OpenAI, or OpenRouter — and SuperPaste is genuinely free. It works in the paid build and in builds you compile from source, sending screenshots straight from your Mac to your chosen provider. No telemetry either way.
 
@@ -30,7 +30,7 @@ Want nothing to leave your Mac? Pick **Ollama (local)** or **LM Studio (local)**
 
 ### From the signed DMG
 
-Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. You start on the 7-day free trial (no card, 15 responses/day); after that it's $5/month via Polar with 100 responses/day, cancel anytime. SuperPaste checks for signed updates automatically; a red dot appears in the menu bar and Settings when one is ready, and you can install it without leaving the app.
+Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. You start on the 7-day free trial (no card, 15 responses/day shared per public network); after that it's $5/month via Polar with 100 responses/day, cancel anytime. SuperPaste checks for signed updates automatically; a red dot appears in the menu bar and Settings when one is ready, and you can install it without leaving the app.
 
 → [Download SuperPaste.dmg](https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg)
 
@@ -130,7 +130,7 @@ Notes:
 
 A Smart Share Link lets you define what you want people to get across without writing the post for them. You describe the message, the facts that must survive, the link, and what nobody should claim. Everyone who shares it gets their own version, written for wherever they're posting.
 
-Nobody ends up posting the same paragraph as everyone else, and the facts, the link, and your guardrails survive every version.
+Drafts can vary. Supplied fact text and the required URL are preserved deterministically; blocked phrases use normalized matching. This is not a semantic fact-checker: review claims before posting.
 
 ### Magic Copy — how sharing actually works
 
@@ -155,10 +155,10 @@ Go to [superpaste.ai/smart-share](https://superpaste.ai/smart-share) and fill in
 | Campaign name | yes | Shown to people who open the link |
 | Message / intent | yes | The point to get across, not the wording |
 | Link | no | http/https only, included verbatim with no tracking added |
-| Required facts | no | Up to 8; every post carries all of them |
+| Required facts | no | Up to 8; missing supplied fact text is appended verbatim |
 | Hashtags | no | Up to 6; only used where they read naturally |
 | Tone | no | A few words |
-| Prohibited claims | no | Up to 10; a draft that uses one is refused, not pasted |
+| Blocked phrases | no | Up to 10; normalized phrase matches are refused after all repairs; this does not detect semantic paraphrases |
 | Supported platforms | yes | Only these are targeted |
 | Expiration date | no | After it, the link stops working |
 
@@ -220,7 +220,7 @@ A campaign arrives from a URL a stranger can hand-edit, so:
 - Oversized payloads are rejected before being parsed, and unknown/newer schema versions are refused rather than half-understood.
 - An invalid or expired link is refused **before** the quota gate, so a dead link costs nothing.
 - **Campaign text never enters the system prompt.** It goes in the user message, JSON-encoded, inside a block whose delimiter carries a nonce the campaign author cannot predict. There are tests asserting no campaign text reaches the system prompt on any platform.
-- Because Magic Copy pastes with no review screen, guardrails are **enforced** rather than reported: a missing required URL is appended, and a draft that uses a prohibited claim is refused outright rather than typed into someone's composer.
+- Because Magic Copy pastes with no review screen, guardrails are **enforced** rather than reported: a missing required URL is appended, and a draft containing a normalized blocked phrase is refused after all repairs rather than typed into someone's composer.
 - Upstream errors on the share path are never forwarded, since an error body could echo a third party's campaign text back to the sharer.
 - The `/share` page renders campaign values through `textContent`, never `innerHTML`, and labels which content came from the campaign.
 - Nothing is ever auto-posted. The text lands in the composer and stops there.
@@ -245,7 +245,7 @@ Tests cover schema validation, link parsing, prompt construction, platform confi
 - SuperPaste captures one active-window screenshot only when you press Option+V.
 - The screenshot is sent to your chosen AI provider for generation and immediately discarded after processing. With the hosted plan it goes through the SuperPaste backend; with a bring-your-own-key it goes directly from your Mac to the provider — the SuperPaste backend never sees it. With a local provider (Ollama, LM Studio) it never leaves your Mac at all.
 - Accessibility is used for the global hotkey and the final `⌘V` paste.
-- Smart Share Links send the campaign and the chosen platform to the backend to write the post, and nothing else — no visitor identifier, no cookie, no stored record of who opened a link.
+- Smart Share Links send the campaign and the chosen platform to the backend to write the post, and no screenshot. Link resolution has no visitor tracking; hosted generation uses the same entitlement and quota controls as other requests.
 - No analytics, no telemetry, no crash reporting. If something goes wrong, please file an issue.
 
 Full details: [Privacy policy](https://superpaste.ai/privacy) · [Terms](https://superpaste.ai/terms) · [Refunds](https://superpaste.ai/refunds)
@@ -273,3 +273,21 @@ For substantial changes, please open an issue first so we can sort the design ou
 ## License
 
 [MIT](./LICENSE). Use it however you want. Attribution appreciated but not required.
+
+## Hosted request and quota hardening
+
+All generation requires the `QUOTA_LEDGER` SQLite-backed Durable Object binding and migration in `server/wrangler.toml`. Reservations atomically count a generation against its principal and tier-wide daily allowance **before** inference. Dispatched attempts remain charged on upstream errors/timeouts because a transport failure does not prove that no inference occurred. There is no automatic retry in this branch; coordinate the separate retry PR with this reservation boundary. A deliberate new hotkey request consumes a new reservation.
+
+Set a stable, random `TRIAL_IDENTITY_SECRET` of at least 32 characters with `wrangler secret put TRIAL_IDENTITY_SECRET` **before deploying** this change. Keep it stable: rotating it resets network trial identities. Missing storage or trial-identity configuration fails closed (503); it never falls back to the old resettable device-ID counters. Raw IPs are not written to quota storage: an HMAC establishes the network principal. Trial first-seen records persist to prevent resets; dated usage records are used only for access/cost limits. Licensed quotas are bound to the hash of the validated license, shared across devices. Shared-network anonymous trials are abuse controls, not proof of a unique person or device; a new network can represent a new anonymous principal.
+
+The 35-second Worker budget includes input parsing and license checks, and ends before the app's 45-second timeout. Positive license validations remain cached for up to one hour. Dependency failures cannot validate unknown keys. Image checks validate encoding, type headers, and pixel dimensions; the provider still validates compressed pixel data.
+
+Cloudflare documents [transactional storage](https://developers.cloudflare.com/durable-objects/api/sqlite-storage-api/) and the [SQLite class migration format](https://developers.cloudflare.com/durable-objects/reference/durable-object-class-migrations-legacy/) used here.
+
+Endpoint settings now require **Connect** to commit an edited server address. Custom/local server keys are bound to that endpoint scope. Existing unscoped custom/local keys must be entered again for their intended server; fixed Anthropic/OpenAI/OpenRouter keys are unaffected. Redirects are refused for provider requests so screenshots and credentials do not follow them.
+
+## Release checks
+
+Public releases require a clean intended commit, a new marketing version, a strictly newer numeric build version, a Developer ID identity, and the `superpaste-notary` profile. `scripts/release.sh --preflight-only` validates prerequisites without building or publishing. `--skip-notarize` is allowed only with `--local`. Published assets are immutable.
+
+Release packaging builds both arm64 and x86_64, verifies all packaged Mach-O slices before signing, records the source commit in the bundle, and requires accepted notarization and staple validation before publishing. Local packaging remains available with `scripts/release.sh --local`. Run `python3 -m unittest discover -s scripts/tests -v` for the release-policy regression tests. Run `cd server && npm run test:quota-runtime` to exercise real SQLite reservations, last-slot concurrency, and persistence across a local runtime restart; it never calls a model or deploys a Worker.

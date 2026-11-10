@@ -36,3 +36,13 @@ simple = { limit = 10, period = 60 }
 # Production route — update once you've added the custom domain in Cloudflare dashboard
 # [env.production]
 # routes = [{ pattern = "api.superpaste.ai/v1/*", zone_name = "superpaste.ai" }]
+
+# SQLite-backed transactional capacity reservations. No fallback to KV counters.
+[[durable_objects.bindings]]
+name = "QUOTA_LEDGER"
+class_name = "QuotaLedger"
+
+[[migrations]]
+tag = "quota-ledger-v1"
+new_sqlite_classes = ["QuotaLedger"]
+# Set TRIAL_IDENTITY_SECRET with wrangler secret put (at least 32 random characters).

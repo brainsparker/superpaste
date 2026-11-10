@@ -122,10 +122,10 @@ final class HUDState: ObservableObject {
     func showReady() {
         cancelTasks()
         stage = .ready
-        currentPhrase = "Pasted"
-        secondaryPhrase = "Right where you left off."
+        currentPhrase = "Paste sent"
+        secondaryPhrase = "Copy Last Response is available in the menu bar."
         recoveryAction = nil
-        announce("Response pasted")
+        announce("Paste sent. The response is also available in the menu bar.")
 
         // Play sound if enabled
         if playSoundOnReady {

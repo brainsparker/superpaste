@@ -1,3 +1,4 @@
+import { readJsonBody as readBoundedJson, RequestError } from "../request.ts";
 /**
  * Smart Share Links — HTTP surface.
  *
@@ -83,19 +84,7 @@ function json(body: unknown, status: number, origin: string | null, extra: Recor
  * measured because the header is client-supplied and may be absent or lying.
  */
 async function readJsonBody(request: Request): Promise<unknown> {
-  const declared = Number(request.headers.get("Content-Length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) {
-    throw new SmartShareError("payload_too_large", "Request body is too large.");
-  }
-  const text = await request.text();
-  if (text.length > MAX_REQUEST_BYTES) {
-    throw new SmartShareError("payload_too_large", "Request body is too large.");
-  }
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new SmartShareError("invalid_campaign", "Request body must be JSON.");
-  }
+  return readBoundedJson(request, MAX_REQUEST_BYTES);
 }
 
 /** Short, non-reversible reference for the analytics seam. Never the campaign id. */
@@ -167,6 +156,7 @@ export async function handleSmartShareRequest(
         origin,
       );
     } catch (err) {
+      if (err instanceof RequestError) return json({ error: "bad_request", message: err.message }, err.status, origin);
       if (err instanceof SmartShareError) {
         return json({ error: err.code, message: err.message, details: err.details }, 400, origin);
       }
@@ -223,6 +213,7 @@ export async function handleSmartShareRequest(
         origin,
       );
     } catch (err) {
+      if (err instanceof RequestError) return json({ error: "bad_request", message: err.message }, err.status, origin);
       if (err instanceof SmartShareError) {
         const status = err.code === "campaign_expired" ? 410 : 400;
         return json({ error: err.code, message: err.message, details: err.details }, status, origin);

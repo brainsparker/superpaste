@@ -152,9 +152,9 @@
 
     <h2>What we do process</h2>
     <ul>
-      <li><strong>Device ID</strong> — a random UUID generated on your Mac, used to run the free trial and apply rate limits. It is not tied to your name, email, or Apple ID.</li>
+      <li><strong>Device ID</strong> — a random UUID generated on your Mac for request attribution. It does not establish a trial entitlement and is not tied to your name, email, or Apple ID.</li>
       <li><strong>License key</strong> — sent with requests to validate an active subscription.</li>
-      <li><strong>IP address</strong> — used transiently for rate limiting on our API.</li>
+      <li><strong>IP address</strong> — used for burst limiting and to derive a keyed hash for anonymous trial enforcement. Raw IPs are not written to quota storage. People sharing a public IP share the trial and daily allowance. We retain the hashed trial start to prevent resets and dated counters to enforce access/cost limits.</li>
     </ul>
 
     <h2>No analytics, no telemetry</h2>
@@ -164,7 +164,7 @@
     <p>Subscriptions are handled by <a href="https://polar.sh">Polar</a>, our merchant of record. Polar sees your billing details (name, email, payment method); we never see your card number. Polar's own <a href="https://polar.sh/legal/privacy">privacy policy</a> applies to payment data.</p>
 
     <h2>Your rights</h2>
-    <p>If you are in the EU/EEA, UK, or another jurisdiction with data-protection law (such as the GDPR), you have the right to access, correct, delete, or export the personal data we hold about you, and to object to or restrict its processing. Because we hold almost nothing — a device UUID, a license key, and transient rate-limiting records — most requests are simple. Email us and we'll handle it.</p>
+    <p>If you are in the EU/EEA, UK, or another jurisdiction with data-protection law (such as the GDPR), you have the right to access, correct, delete, or export the personal data we hold about you, and to object to or restrict its processing. Because we hold almost nothing — request attribution, validated-license status, and pseudonymous trial/quota records — most requests are simple. Email us and we'll handle it.</p>
 
     <h2>Contact</h2>
     <p>Questions, requests, or concerns: <a href="mailto:superpaste@sparker.ai">superpaste@sparker.ai</a>.</p>

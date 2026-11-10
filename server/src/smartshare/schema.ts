@@ -1,3 +1,4 @@
+import { containsPhrase } from "./text.ts";
 /**
  * Smart Share Links — campaign schema and validation.
  *
@@ -213,7 +214,11 @@ function readStringArray(
       errors.push(`${field} must contain only strings`);
       return [];
     }
-    const cleaned = cleanLine(entry, maxLength);
+    const cleaned = cleanLine(entry, maxLength + 1);
+    if (cleaned.length > maxLength) {
+      errors.push(`${field} entries must be ${maxLength} characters or fewer`);
+      continue;
+    }
     if (cleaned.length > 0) out.push(cleaned);
   }
   // Dedupe case-insensitively; duplicate facts just waste prompt budget.
@@ -332,6 +337,11 @@ export function parseCampaignDraft(input: unknown): ParseResult<SmartShareCampai
     errors.push(`unsupported campaign version ${version}; this build understands up to ${SMART_SHARE_SCHEMA_VERSION}`);
   }
 
+  for (const phrase of prohibitedClaims) {
+    if (requiredFacts.some(fact => containsPhrase(fact, phrase)) || (requiredUrl && containsPhrase(requiredUrl, phrase))) {
+      errors.push("A required fact or URL contains a blocked phrase. Resolve the conflicting constraints.");
+    }
+  }
   if (errors.length > 0) return { ok: false, errors };
 
   const draft: SmartShareCampaignDraft = {

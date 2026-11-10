@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 /// Identifies which AI service powers the paste.
 enum LLMProviderID: String, CaseIterable, Identifiable, Codable {
@@ -163,7 +164,8 @@ struct LLMProviderConfig: Codable, Equatable {
             if trimmed.isEmpty {
                 return provider.isLocal ? provider.endpointURL : nil
             }
-            return LocalEndpoint.chatCompletionsURL(from: trimmed)
+            let endpoint = LocalEndpoint.chatCompletionsURL(from: trimmed)
+            return endpoint.isEmpty ? nil : endpoint
         }
         return provider.endpointURL.isEmpty ? nil : provider.endpointURL
     }
@@ -175,7 +177,7 @@ struct LLMProviderConfig: Codable, Equatable {
         guard provider.isBringYourOwnKey else { return false }
         guard resolvedEndpoint != nil else { return false }
         if provider.requiresAPIKey {
-            return UserCredentialStore.apiKey(for: provider) != nil
+            return UserCredentialStore.apiKey(for: provider, endpoint: resolvedEndpoint) != nil
         }
         return true
     }
@@ -186,30 +188,37 @@ struct LLMProviderConfig: Codable, Equatable {
 /// Stores the API key for each BYO provider in the Keychain,
 /// scoped per provider so switching doesn't lose the saved key.
 enum UserCredentialStore {
-    private static func keychain(for provider: LLMProviderID) -> Keychain {
-        Keychain(service: "app.superpaste.key.\(provider.rawValue)")
+    static func credentialService(for provider: LLMProviderID, endpoint: String? = nil) -> String? {
+        let base = "app.superpaste.key.\(provider.rawValue)"
+        guard provider.supportsCustomEndpoint else { return base }
+        let config = LLMService.currentConfig()
+        guard let endpoint = endpoint ?? (config.provider == provider ? config.resolvedEndpoint : nil),
+              let scope = LocalEndpoint.credentialScope(endpoint) else { return nil }
+        let digest = SHA256.hash(data: Data(scope.utf8)).map { String(format: "%02x", $0) }.joined()
+        return "\(base).\(digest)"
     }
 
-    static func apiKey(for provider: LLMProviderID) -> String? {
+    private static func keychain(for provider: LLMProviderID, endpoint: String? = nil) -> Keychain? {
+        credentialService(for: provider, endpoint: endpoint).map { Keychain(service: $0) }
+    }
+
+    static func apiKey(for provider: LLMProviderID, endpoint: String? = nil) -> String? {
         guard provider.isBringYourOwnKey else { return nil }
-        let kc = keychain(for: provider)
-        guard let key = kc.read(), !key.isEmpty else { return nil }
+        guard let kc = keychain(for: provider, endpoint: endpoint),
+              let key = kc.read(), !key.isEmpty else { return nil }
         return key
     }
 
     static func set(apiKey: String, for provider: LLMProviderID) throws {
         let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard provider.isBringYourOwnKey else { return }
-        if trimmed.isEmpty {
-            keychain(for: provider).delete()
-        } else {
-            try keychain(for: provider).write(trimmed)
-        }
+        guard let kc = keychain(for: provider) else { throw LLMService.LLMError.providerNotConfigured }
+        if trimmed.isEmpty { kc.delete() } else { try kc.write(trimmed) }
     }
 
     static func clear(for provider: LLMProviderID) {
         guard provider.isBringYourOwnKey else { return }
-        keychain(for: provider).delete()
+        keychain(for: provider)?.delete()
     }
 
     /// True when ANY BYO provider has a key saved.

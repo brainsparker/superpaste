@@ -21,7 +21,15 @@ enum LocalEndpoint {
         }
         while value.hasSuffix("/") { value.removeLast() }
 
-        guard var components = URLComponents(string: value) else { return value }
+        guard var components = URLComponents(string: value),
+              let scheme = components.scheme?.lowercased(), ["http", "https"].contains(scheme),
+              let host = components.host, !host.isEmpty,
+              !host.contains(where: { $0.isWhitespace }),
+              components.user == nil, components.password == nil, components.fragment == nil,
+              components.port.map({ (1...65535).contains($0) }) != false,
+              components.url != nil else { return "" }
+        components.scheme = scheme
+        components.host = host.lowercased()
         let path = components.path
         if path.isEmpty {
             components.path = chatPath
@@ -32,11 +40,19 @@ enum LocalEndpoint {
         return components.string ?? value
     }
 
+    /// Scope includes the endpoint mount: credentials never follow a host or path edit.
+    static func credentialScope(_ endpoint: String) -> String? {
+        let normalized = chatCompletionsURL(from: endpoint)
+        guard !normalized.isEmpty, var parts = URLComponents(string: normalized) else { return nil }
+        if (parts.scheme == "https" && parts.port == 443) || (parts.scheme == "http" && parts.port == 80) { parts.port = nil }
+        return parts.string
+    }
+
     /// Derives the `GET /v1/models` URL that sits beside a chat-completions URL.
     /// `http://localhost:11434/v1/chat/completions` becomes `http://localhost:11434/v1/models`.
     static func modelsURL(fromChatCompletionsURL chatURL: String) -> URL? {
         let normalized = chatCompletionsURL(from: chatURL)
-        guard var components = URLComponents(string: normalized) else { return nil }
+        guard !normalized.isEmpty, var components = URLComponents(string: normalized) else { return nil }
         var path = components.path
         if path.hasSuffix("/chat/completions") {
             path = String(path.dropLast("/chat/completions".count))
@@ -55,8 +71,8 @@ enum LocalEndpoint {
     /// Diagnostics (never the full URL, which could carry a token in a query).
     static func displayHost(_ endpoint: String) -> String {
         guard let components = URLComponents(string: chatCompletionsURL(from: endpoint)),
-              let host = components.host else {
-            return endpoint
+              let host = components.host, !host.isEmpty else {
+            return "Invalid endpoint"
         }
         if let port = components.port {
             return "\(host):\(port)"
@@ -71,10 +87,13 @@ enum LocalEndpoint {
               let host = components.host?.lowercased() else {
             return false
         }
-        if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]" || host == "0.0.0.0" {
+        if host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "[::1]" {
             return true
         }
-        if host.hasPrefix("127.") { return true }
+        let octets = host.split(separator: ".", omittingEmptySubsequences: false)
+        if octets.count == 4, octets.allSatisfy({ part in
+            !part.isEmpty && part.allSatisfy({ $0.isASCII && $0.isNumber }) && Int(part).map { (0...255).contains($0) } == true
+        }), octets.first == "127" { return true }
         if host.hasSuffix(".localhost") { return true }
         return false
     }
@@ -202,7 +221,7 @@ enum LocalModelServer {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await ProviderTransport.session.data(for: request)
         } catch {
             throw ListError.unreachable
         }

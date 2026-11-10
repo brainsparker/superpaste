@@ -16,7 +16,7 @@ struct PasteTransactionTests {
                 isCurrent: { self.active },
                 destinationMatches: { self.focused },
                 clipboardMatches: { self.clipboardUnchanged },
-                prepareClipboard: { self.preparations += 1 },
+                prepareClipboard: { self.preparations += 1; return true },
                 restoreClipboard: { self.restores += 1 },
                 paste: { self.pastes += 1; return true },
                 wait: wait

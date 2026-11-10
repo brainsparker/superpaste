@@ -98,6 +98,8 @@ final class AppState: ObservableObject {
 
     private var cancellables = Set<AnyCancellable>()
     private var processingTask: Task<Void, Never>?
+    private var clipboardRestoreTask: Task<Void, Never>?
+    private let clipboardRestoration = ClipboardRestoration<[NSPasteboardItem]>()
 
     /// Monotonic pipeline token. Every trigger bumps it; a pipeline only
     /// mutates shared state (isProcessing, HUD, paste) while its own token is
@@ -165,6 +167,7 @@ final class AppState: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] enabled in
                 self?.screenRecordingEnabled = enabled
+                if !enabled, self?.isProcessing == true { self?.cancelProcessing() }
                 self?.updateMainWindowState()
             }
             .store(in: &cancellables)
@@ -268,7 +271,7 @@ final class AppState: ObservableObject {
             mainWindowState = .permissionRequired
         } else if !accessibilityEnabled {
             mainWindowState = .accessibilityRequired
-        } else if UserDefaults.standard.bool(forKey: "trialExpiredLocally") && !usingOwnAPIKey {
+        } else if UserDefaults.standard.bool(forKey: "trialExpiredLocally") && !usingOwnAPIKey && !isLicensed {
             mainWindowState = .trialExpired
         } else {
             mainWindowState = .ready
@@ -329,6 +332,10 @@ final class AppState: ObservableObject {
         }
 
         computeTrialDaysRemaining()
+        if providerConfig.provider != .superpaste && !providerConfig.isOwnProviderReady {
+            hudState.showError(.provider(.providerNotConfigured))
+            return
+        }
 
         guard mainWindowState != .trialExpired else {
             hudState.showError(.provider(.trialExpired))
@@ -340,9 +347,17 @@ final class AppState: ObservableObject {
             return
         }
 
+        clipboardRestoreTask?.cancel()
+        guard clipboardRestoration.settle(changeCount: clipboardService.changeCount, restore: clipboardService.restore, currentOwnedCount: { self.clipboardService.ownedChangeCount }) else {
+            hudState.showError(.init(code: .pasteUnavailable, message: "Couldn't restore your clipboard. Try again.", recovery: .retry))
+            return
+        }
+        guard let destination = PasteDestination.current() else {
+            hudState.showError(.init(code: .destinationChanged, message: "Click into an editable text field, then try again.", recovery: nil))
+            return
+        }
         let generation = pipelineToken.advance()
         isProcessing = true
-        let destination = PasteDestination.current()
         let clipboardCount = clipboardService.changeCount
         let isPractice = practiceFieldFocused && NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
         if isPractice {
@@ -374,7 +389,8 @@ final class AppState: ObservableObject {
 
     // MARK: - Processing Pipeline
 
-    private func processPipeline(generation: Int, destination: PasteDestination?, clipboardCount: Int, isPractice: Bool) async {
+    private func processPipeline(generation: Int, destination: PasteDestination, clipboardCount: Int, isPractice: Bool) async {
+        guard isCurrent(generation) else { return }
         isProcessing = true
         lastError = nil
 
@@ -382,7 +398,7 @@ final class AppState: ObservableObject {
         // user wants a post written for wherever they are, not a reading of the
         // window. Checked first because it needs no screenshot at all.
         if let campaignLink = SmartShareLink.inClipboard(clipboardService) {
-            await processMagicCopy(generation: generation, link: campaignLink)
+            await processMagicCopy(generation: generation, link: campaignLink, destination: destination, clipboardCount: clipboardCount)
             return
         }
 
@@ -413,7 +429,7 @@ final class AppState: ObservableObject {
         let allowOwnWindow = isPractice
         let context: ScreenCaptureService.CapturedContext
         do {
-            context = try await screenCaptureService.capture(allowOwnWindow: allowOwnWindow)
+            context = try await screenCaptureService.capture(destination: destination, allowOwnWindow: allowOwnWindow)
         } catch let error as ScreenCaptureService.CaptureError {
             failPipeline(generation, message: Self.message(for: error))
             return
@@ -423,6 +439,11 @@ final class AppState: ObservableObject {
         }
 
         guard isCurrent(generation) else { return }
+        guard destination.isStillFocused(), context.frontmostPID == destination.pid,
+              permissionManager.checkPermission(), captureAllowed(context.bundleIdentifier, context.appName) else {
+            failPipeline(generation, message: "The capture destination changed. Try again.")
+            return
+        }
         if isPractice { practiceProgress = .captured }
         hudState.startThinking()
 
@@ -433,42 +454,8 @@ final class AppState: ObservableObject {
             lastResponse = response
 
             if isPractice { practiceProgress = .generated }
-            let previousClipboard = clipboardService.snapshotItems()
-            var expectedChangeCount = clipboardCount
-            let outcome = await PasteTransaction.run(
-                isCurrent: { self.isCurrent(generation) },
-                destinationMatches: {
-                    destination?.pid == context.frontmostPID && destination?.isStillFocused() == true
-                        && self.permissionManager.checkAccessibilityPermission()
-                },
-                clipboardMatches: { self.clipboardService.changeCount == expectedChangeCount },
-                prepareClipboard: {
-                    self.clipboardService.write(response)
-                    expectedChangeCount = self.clipboardService.changeCount
-                },
-                restoreClipboard: { self.clipboardService.restore(previousClipboard) },
-                paste: {
-                    if isPractice { self.expectedPracticeReply = response }
-                    return self.simulatePaste()
-                }
-            )
-            guard isCurrent(generation) else { return }
-            switch outcome {
-            case .pasted:
-                useCount += 1
-                if !isPractice { UserDefaults.standard.set(true, forKey: "hasTriedOnce") }
-                hudState.showReady()
-                restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: expectedChangeCount)
-            case .destinationChanged:
-                hudState.showError(.destinationChanged)
-            case .clipboardChanged:
-                hudState.showError(.init(code: .clipboardChanged, message: "Your clipboard changed. Your reply is ready to copy when you need it.", recovery: .copyResponse))
-            case .pasteUnavailable:
-                hudState.showError(.init(code: .pasteUnavailable, message: "Couldn't send the paste keystroke. Your reply is ready to copy.", recovery: .copyResponse))
-            case .cancelled:
-                break
-            }
-            if outcome != .pasted { expectedPracticeReply = nil }
+            await pasteResponse(response, generation: generation, destination: destination,
+                                clipboardCount: clipboardCount, isPractice: isPractice)
 
         } catch LLMService.LLMError.trialExpired {
             guard isCurrent(generation) else { return }
@@ -498,7 +485,12 @@ final class AppState: ObservableObject {
     /// app supplies the destination, so there is nothing to read off the screen.
     /// That makes it faster than a normal paste and means nothing about the
     /// user's screen leaves the machine.
-    private func processMagicCopy(generation: Int, link: String) async {
+    private func processMagicCopy(generation: Int, link: String, destination: PasteDestination, clipboardCount: Int) async {
+        guard isCurrent(generation) else { return }
+        guard destination.isStillFocused() else {
+            failPipeline(generation, message: "The destination changed. Try again.")
+            return
+        }
         // Still refuse secure input. Nothing is captured here, but pasting into
         // a focused password field would be its own kind of wrong.
         let frontApp = NSWorkspace.shared.frontmostApplication
@@ -510,7 +502,7 @@ final class AppState: ObservableObject {
             return
         }
 
-        let target = screenCaptureService.frontmostWindowTarget()
+        let target = screenCaptureService.frontmostWindowTarget(destination: destination)
         hudState.startWritingShare()
 
         do {
@@ -519,38 +511,8 @@ final class AppState: ObservableObject {
 
             lastResponse = response
 
-            // If the user switched apps mid-request, a synthetic ⌘V would land
-            // the post in whatever is focused now. Copy instead of pasting.
-            let currentPID = NSWorkspace.shared.frontmostApplication?.processIdentifier
-            if let capturedPID = target.frontmostPID, currentPID != capturedPID {
-                clipboardService.write(response)
-                useCount += 1
-                hudState.showError(.init(code: .destinationChanged, message: "Focus changed \u{2014} post copied. Press \u{2318}V to paste it.", recovery: nil))
-                finishPipeline(generation)
-                return
-            }
-
-            let previousClipboard = clipboardService.snapshotItems()
-            clipboardService.write(response)
-            let ourChangeCount = clipboardService.changeCount
-
-            try? await Task.sleep(for: .milliseconds(50))
-            guard isCurrent(generation) else {
-                if clipboardService.changeCount == ourChangeCount {
-                    clipboardService.restore(previousClipboard)
-                }
-                return
-            }
-            simulatePaste()
-
-            useCount += 1
-            hudState.showReady()
-
-            // Restoring hands the campaign link back to the clipboard, which is
-            // exactly what makes the next press work: the user can move to
-            // another app, press the hotkey again, and get a different post for
-            // that platform without re-copying anything.
-            restoreClipboardLater(previousClipboard, ifChangeCountStillEquals: ourChangeCount)
+            await pasteResponse(response, generation: generation, destination: destination,
+                                clipboardCount: clipboardCount, isPractice: false)
 
         } catch LLMService.LLMError.trialExpired {
             guard isCurrent(generation) else { return }
@@ -589,12 +551,70 @@ final class AppState: ObservableObject {
         isProcessing = false
     }
 
-    private func restoreClipboardLater(_ previous: [NSPasteboardItem], ifChangeCountStillEquals changeCount: Int) {
-        Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(1500))
-            guard let self else { return }
-            if self.clipboardService.changeCount == changeCount {
-                self.clipboardService.restore(previous)
+    private func captureAllowed(_ bundleID: String?, _ name: String?) -> Bool {
+        if let bundleID, captureExclusions.contains(bundleID) { return false }
+        if case .allowed = SensitiveContextGuard.check(bundleIdentifier: bundleID, appName: name) { return true }
+        return false
+    }
+
+    private func pasteResponse(_ response: String, generation: Int, destination: PasteDestination,
+                               clipboardCount: Int, isPractice: Bool) async {
+        guard isCurrent(generation) else { return }
+        let previous = clipboardService.snapshotItems()
+        var expectedCount = clipboardCount
+        let outcome = await PasteTransaction.run(
+            isCurrent: { self.isCurrent(generation) },
+            destinationMatches: {
+                destination.isStillFocused() && self.permissionManager.checkAccessibilityPermission()
+                    && self.captureAllowed(NSRunningApplication(processIdentifier: destination.pid)?.bundleIdentifier, nil)
+            },
+            clipboardMatches: { self.clipboardService.changeCount == expectedCount },
+            prepareClipboard: {
+                let written = self.clipboardService.write(response)
+                expectedCount = self.clipboardService.ownedChangeCount ?? -1
+                if expectedCount != -1 {
+                    self.clipboardRestoration.remember(previous, changeCount: expectedCount)
+                    self.scheduleClipboardRestoration()
+                }
+                return written
+            },
+            restoreClipboard: {
+                if !self.clipboardRestoration.settle(changeCount: self.clipboardService.changeCount,
+                    restore: self.clipboardService.restore, currentOwnedCount: { self.clipboardService.ownedChangeCount }) {
+                    self.lastError = "Couldn't restore your clipboard."
+                }
+            },
+            paste: {
+                if isPractice { self.expectedPracticeReply = response }
+                return self.simulatePaste()
+            }
+        )
+        guard isCurrent(generation) else { return }
+        switch outcome {
+        case .pasted:
+            useCount += 1
+            if !isPractice { UserDefaults.standard.set(true, forKey: "hasTriedOnce") }
+            hudState.showReady()
+            scheduleClipboardRestoration()
+        case .destinationChanged:
+            hudState.showError(.destinationChanged)
+        case .clipboardChanged:
+            hudState.showError(.init(code: .clipboardChanged, message: "Your clipboard changed. Your response is ready to copy.", recovery: .copyResponse))
+        case .clipboardUnavailable, .pasteUnavailable:
+            hudState.showError(.init(code: .pasteUnavailable, message: "Couldn't prepare the paste. Your response is ready to copy.", recovery: .copyResponse))
+        case .cancelled: break
+        }
+        if outcome != .pasted { expectedPracticeReply = nil }
+    }
+
+    private func scheduleClipboardRestoration() {
+        clipboardRestoreTask?.cancel()
+        clipboardRestoreTask = Task { [weak self] in
+            do { try await Task.sleep(for: .milliseconds(1500)) } catch { return }
+            guard !Task.isCancelled, let self else { return }
+            if !self.clipboardRestoration.settle(changeCount: self.clipboardService.changeCount,
+                restore: self.clipboardService.restore, currentOwnedCount: { self.clipboardService.ownedChangeCount }) {
+                self.lastError = "Couldn't restore your clipboard."
             }
         }
     }
@@ -684,6 +704,7 @@ final class AppState: ObservableObject {
     // MARK: - Provider configuration
 
     func setProviderConfig(_ config: LLMProviderConfig) {
+        if isProcessing { cancelProcessing() }
         providerConfig = config
         LLMService.saveConfig(config)
         computeTrialDaysRemaining()

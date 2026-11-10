@@ -3,24 +3,32 @@ import Testing
 @testable import SuperPaste
 
 /// Real NSPasteboard round-trip through ClipboardService (no mocks), plus the
-/// transaction contract end-to-end. Tests mutate the shared pasteboard, so
-/// every written value is unique and nothing asserts specific prior contents.
+/// transaction contract end-to-end. Each test has an isolated named pasteboard.
+@Suite(.serialized)
 @MainActor
 struct PasteboardIntegrationTests {
+    private let clipboard = ClipboardService(pasteboard: .withUniqueName())
     @Test func writeAndReadRoundTrip() {
         let unique = "superpaste-integration-\(UUID().uuidString)"
-        ClipboardService.shared.write(unique)
-        #expect(ClipboardService.shared.read() == unique)
+        clipboard.write(unique)
+        #expect(clipboard.read() == unique)
     }
 
-    @Test func emptyRestoreIsANoOp() {
-        let before = ClipboardService.shared.changeCount
-        ClipboardService.shared.restore([])
-        #expect(ClipboardService.shared.changeCount == before)
+    @Test func nonemptyRestorationPreservesContents() {
+        #expect(clipboard.write("original clipboard"))
+        let original = clipboard.snapshotItems()
+        #expect(clipboard.write("temporary response"))
+        #expect(clipboard.restore(original))
+        #expect(clipboard.read() == "original clipboard")
+    }
+
+    @Test func emptyRestoreClearsContents() {
+        #expect(clipboard.restore([]))
+        #expect(clipboard.read() == nil)
     }
 
     @Test func transactionRefusesStaleDestination() async {
-        let service = ClipboardService.shared
+        let service = clipboard
         let previous = service.snapshotItems()
         var pasteCalls = 0
         let outcome = await PasteTransaction.run(
@@ -43,7 +51,7 @@ struct PasteboardIntegrationTests {
             isCurrent: { true },
             destinationMatches: { true },
             clipboardMatches: { false },
-            prepareClipboard: { ClipboardService.shared.write("superseded-\(UUID().uuidString)") },
+            prepareClipboard: { clipboard.write("superseded-\(UUID().uuidString)") },
             restoreClipboard: {},
             paste: { pasteCalls += 1; return true },
             wait: {}
@@ -53,7 +61,7 @@ struct PasteboardIntegrationTests {
     }
 
     @Test func successfulRunPastesExactlyOnce() async {
-        let service = ClipboardService.shared
+        let service = clipboard
         let unique = "superpaste-pasted-\(UUID().uuidString)"
         var pasteCalls = 0
         let outcome = await PasteTransaction.run(

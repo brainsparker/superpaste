@@ -21,10 +21,12 @@ final class PermissionManager: ObservableObject {
 
     private var pollingTimer: Timer?
     private let pollingInterval: TimeInterval = 1.0
+    private let screenProbe: (() -> Bool)?
 
     // MARK: - Initialization
 
-    private init() {
+    init(screenProbe: (() -> Bool)? = nil) {
+        self.screenProbe = screenProbe
         checkPermission()
         checkAccessibilityPermission()
     }
@@ -40,6 +42,12 @@ final class PermissionManager: ObservableObject {
     /// Recording is granted, so if we can see at least one, we have permission.
     @discardableResult
     func checkPermission() -> Bool {
+        if let screenProbe {
+            let enabled = screenProbe()
+            screenRecordingEnabled = enabled
+            if enabled { mayNeedRelaunch = false }
+            return enabled
+        }
         if CGPreflightScreenCaptureAccess() {
             screenRecordingEnabled = true
             mayNeedRelaunch = false
@@ -65,8 +73,8 @@ final class PermissionManager: ObservableObject {
             return !windowName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         }
 
+        screenRecordingEnabled = hasAccess
         if hasAccess {
-            screenRecordingEnabled = true
             mayNeedRelaunch = false
         }
         return hasAccess

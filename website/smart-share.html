@@ -199,7 +199,7 @@
 
         <div class="field">
           <label for="facts">Facts that must appear</label>
-          <div class="hint">One per line, up to 8. Every post will carry all of them, in the writer's own words.</div>
+          <div class="hint">One per line, up to 8. Missing fact text is appended verbatim. Check the facts before posting.</div>
           <textarea id="facts" placeholder="Works on macOS 14 and later&#10;Free with your own Anthropic API key&#10;Open source under MIT"></textarea>
         </div>
       </div>
@@ -219,8 +219,8 @@
         </div>
 
         <div class="field">
-          <label for="prohibited">Claims and phrases to never use</label>
-          <div class="hint">One per line, up to 10. Drafts are checked against these before you see them.</div>
+          <label for="prohibited">Blocked phrases</label>
+          <div class="hint">One per line, up to 10. Normalized phrase matching (including spacing and case), not semantic fact-checking. Review the post before sending.</div>
           <textarea id="prohibited" placeholder="fastest AI tool ever&#10;replaces your team&#10;guaranteed results"></textarea>
         </div>
       </div>
@@ -297,11 +297,12 @@
     var state = { campaign: null, token: null, link: null };
 
     function lines(value, max) {
-      return value
+      var entries = value
         .split('\n')
         .map(function (line) { return line.trim(); })
-        .filter(function (line) { return line.length > 0; })
-        .slice(0, max);
+        .filter(function (line) { return line.length > 0; });
+      if (entries.length > max) throw new Error('Use at most ' + max + ' entries per field. Nothing was dropped.');
+      return entries;
     }
 
     function status(node, message, kind) {
@@ -418,7 +419,15 @@
       status(el('status'), 'Creating your link…');
       el('create').disabled = true;
 
-      post('/campaigns', readForm()).then(function (result) {
+      var draft;
+      try { draft = readForm(); }
+      catch (err) {
+        el('create').disabled = false;
+        showErrors([err.message]);
+        status(el('status'), '', 'err');
+        return;
+      }
+      post('/campaigns', draft).then(function (result) {
         el('create').disabled = false;
 
         if (!result.ok) {
@@ -431,6 +440,19 @@
         state.token = result.data.id;
         state.link = result.data.url;
         state.campaign = result.data.campaign;
+        var canonical = el('canonical-brief');
+        if (!canonical) {
+          canonical = document.createElement('pre');
+          canonical.id = 'canonical-brief';
+          canonical.style.whiteSpace = 'pre-wrap';
+          el('result').appendChild(canonical);
+        }
+        setText(canonical, [
+          'Review your campaign before sharing', state.campaign.name, state.campaign.intent,
+          'Facts included verbatim:', (state.campaign.requiredFacts || []).join('\n'),
+          'Required link: ' + (state.campaign.requiredUrl || 'None'),
+          'Blocked phrases (normalized matching):', (state.campaign.prohibitedClaims || []).join('\n')
+        ].join('\n\n'));
 
         // Point the link at whatever origin this page is served from, so a
         // locally served copy produces links that work locally.

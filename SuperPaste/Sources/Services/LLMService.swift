@@ -154,9 +154,18 @@ final class LLMService {
         return config
     }
 
+    static func config(for provider: LLMProviderID) -> LLMProviderConfig {
+        guard let data = UserDefaults.standard.data(forKey: "llmProviderConfig.\(provider.rawValue)"),
+              let config = try? JSONDecoder().decode(LLMProviderConfig.self, from: data), config.provider == provider else {
+            return .init(provider: provider, model: provider.defaultModel, customEndpoint: "")
+        }
+        return config
+    }
+
     static func saveConfig(_ config: LLMProviderConfig) {
         guard let data = try? JSONEncoder().encode(config) else { return }
         UserDefaults.standard.set(data, forKey: "llmProviderConfig")
+        UserDefaults.standard.set(data, forKey: "llmProviderConfig.\(config.provider.rawValue)")
     }
 
     /// Applies common headers that identify the request as coming from SuperPaste
@@ -220,7 +229,7 @@ final class LLMService {
             guard let endpoint = config.resolvedEndpoint else {
                 throw LLMError.providerNotConfigured
             }
-            let apiKey = UserCredentialStore.apiKey(for: config.provider)
+            let apiKey = UserCredentialStore.apiKey(for: config.provider, endpoint: endpoint)
             let model = try await resolveModel(for: config, endpoint: endpoint, apiKey: apiKey)
             return try await processWithOpenAICompatible(
                 baseURL: endpoint,
@@ -521,7 +530,7 @@ final class LLMService {
     }
 
     /// Parse an Anthropic-format response body.
-    private func parseAnthropicResponse(data: Data) throws -> String {
+    func parseAnthropicResponse(data: Data) throws -> String {
         let anthropicResponse: AnthropicResponse
         do {
             anthropicResponse = try JSONDecoder().decode(AnthropicResponse.self, from: data)
@@ -533,19 +542,16 @@ final class LLMService {
             throw LLMError.serverError(500)
         }
 
-        guard let content = anthropicResponse.content,
-              let firstContent = content.first,
-              firstContent.type == "text",
-              let text = firstContent.text,
-              !text.isEmpty else {
-            throw LLMError.emptyResponse
-        }
-
+        let text = (anthropicResponse.content ?? []).filter { $0.type == "text" }.compactMap(\.text).joined(separator: "\n")
         if anthropicResponse.stop_reason == "max_tokens" {
             throw LLMError.truncatedResponse
         }
 
+        guard anthropicResponse.stop_reason == "end_turn" || anthropicResponse.stop_reason == "stop_sequence" else {
+            throw LLMError.invalidResponse
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LLMError.emptyResponse }
         if trimmed.contains(APIConfig.unclearSentinel) {
             throw LLMError.unclearContext
         }
@@ -576,11 +582,12 @@ final class LLMService {
         }
     }
 
-    private struct OpenAIResponse: Decodable {
+    struct OpenAIResponse: Decodable {
         let choices: [Choice]?
         let error: OpenAIError?
 
         struct Choice: Decodable {
+            let finish_reason: String?
             let message: Message
             struct Message: Decodable {
                 let content: String?
@@ -685,6 +692,10 @@ final class LLMService {
             throw LLMError.serverError(httpResponse.statusCode)
         }
 
+        return try parseOpenAIResponse(data: data)
+    }
+
+    func parseOpenAIResponse(data: Data) throws -> String {
         let openAIResponse: OpenAIResponse
         do {
             openAIResponse = try JSONDecoder().decode(OpenAIResponse.self, from: data)
@@ -705,7 +716,10 @@ final class LLMService {
             throw LLMError.emptyResponse
         }
 
+        if choice.finish_reason == "length" { throw LLMError.truncatedResponse }
+        guard choice.finish_reason == "stop" else { throw LLMError.invalidResponse }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LLMError.emptyResponse }
         if trimmed.contains(APIConfig.unclearSentinel) {
             throw LLMError.unclearContext
         }
@@ -716,8 +730,9 @@ final class LLMService {
     // MARK: - Shared
 
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try Task.checkCancellation()
         do {
-            return try await URLSession.shared.data(for: request)
+            return try await ProviderTransport.session.data(for: request)
         } catch let error as URLError where error.code == .timedOut {
             throw LLMError.timeout
         } catch {
