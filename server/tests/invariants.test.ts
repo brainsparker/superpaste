@@ -1,4 +1,4 @@
-import { test, expect, afterEach } from "vitest";
+import { test, expect, afterEach, vi } from "vitest";
 import worker, { type Env } from "../src/index.ts";
 import { validatePasteRequest } from "../src/paste.ts";
 import { readJsonBody, validImage } from "../src/request.ts";
@@ -120,4 +120,14 @@ test("only an already verified cached license survives a validation outage",asyn
 });
 test("contradictory author constraints are rejected before generation",()=>{
   expect(parseCampaignDraft({...campaignFixture(),requiredFacts:["Uses AI"],prohibitedClaims:["AI"]}).ok).toBe(false);
+});
+
+test("a hung license store cannot outlive the whole request budget",async()=>{
+  vi.useFakeTimers();
+  try {
+    const env=environment(undefined,{SUPERPASTE_KV:{get:()=>new Promise(()=>{})} as unknown as KVNamespace});
+    const pending=call(env,"d","valid-shape");
+    await vi.advanceTimersByTimeAsync(35_001);
+    expect((await pending).status).toBe(504);
+  } finally { vi.useRealTimers(); }
 });

@@ -145,6 +145,7 @@ async function validateLicense(key: string, env: Env, deadline: number): Promise
   // Only a positive cached validation grants outage grace, bounded by its TTL.
   let isValid: boolean;
   try {
+    if (Date.now() >= deadline) throw new Error("Request deadline exceeded");
     const response = await fetch("https://api.polar.sh/v1/license-keys/validate", {
       method: "POST",
       headers: {
@@ -173,9 +174,7 @@ async function validateLicense(key: string, env: Env, deadline: number): Promise
   return isValid;
 }
 
-export default {
-  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
-    const deadline = Date.now() + REQUEST_BUDGET_MS;
+async function handleRequest(request: Request, env: Env, deadline: number): Promise<Response> {
     const url = new URL(request.url);
     const clientIP = request.headers.get("CF-Connecting-IP") ?? "unknown";
 
@@ -308,6 +307,8 @@ export default {
       return json({ error: e.error ?? "service_unavailable", message: e.message ?? "Couldn't reserve request capacity." }, e.status ?? 503);
     }
 
+    // A storage/validation dependency may have outlived the response deadline.
+    if (Date.now() >= deadline) return json({ error: "timeout" }, 504);
     // Build the Anthropic request server-side.
     const anthropicBody = shareCampaign && sharePlatform
       ? buildShareAnthropicBody(shareCampaign, sharePlatform)
@@ -361,6 +362,20 @@ export default {
       status: anthropicResponse.status,
       headers: { "Content-Type": "application/json" },
     });
+}
+
+export default {
+  async fetch(request: Request, env: Env, _ctx: ExecutionContext): Promise<Response> {
+    const deadline = Date.now() + REQUEST_BUDGET_MS;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        handleRequest(request, env, deadline),
+        new Promise<Response>(resolve => {
+          timer = setTimeout(() => resolve(json({ error: "timeout", message: "The request took too long. Try again." }, 504)), REQUEST_BUDGET_MS);
+        }),
+      ]);
+    } finally { if (timer !== undefined) clearTimeout(timer); }
   },
 };
 
