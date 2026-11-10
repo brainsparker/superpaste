@@ -42,16 +42,19 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
 
       - name: Install dependencies
         run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npm run typecheck
 
       - name: Unit tests
         run: npm test
+
+      - name: Worker account and SQLite quota integration
+        run: npm run test:quota-runtime
 
   shell-lint:
     name: ShellCheck

@@ -276,6 +276,8 @@ For substantial changes, please open an issue first so we can sort the design ou
 
 ## Hosted request and quota hardening
 
+Server development and CI use Node 24 or newer. Install the locked dependencies with `npm ci` from `server`; run `npm run typecheck`, `npm test`, and `npm run test:quota-runtime`.
+
 All generation requires the `QUOTA_LEDGER` SQLite-backed Durable Object binding and migration in `server/wrangler.toml`. Reservations atomically count a generation against its principal and tier-wide daily allowance **before** inference. Dispatched attempts remain charged on upstream errors/timeouts because a transport failure does not prove that no inference occurred. There is no automatic retry in this branch; coordinate the separate retry PR with this reservation boundary. A deliberate new hotkey request consumes a new reservation.
 
 Hosted trials require an OpenID Connect provider configured as a **native/public client**, with authorization code + PKCE (S256), no client secret, signed RS256 or ES256 ID tokens, and a real verified-email claim. Configure `TRIAL_OIDC_ISSUER` (the exact HTTPS discovery issuer, including its trailing slash if present) and `TRIAL_OIDC_CLIENT_ID` as Worker variables before deploying. Register these exact callback URIs with the provider:

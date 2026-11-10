@@ -3,7 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
-    // Workers integration tests would need @cloudflare/vitest-pool-workers;
-    // these tests exercise pure logic only and don't need it.
+    // Request tests drive the production handler with stubbed bindings.
+    // test:quota-runtime separately exercises the real Worker and SQLite runtime.
   },
 });
