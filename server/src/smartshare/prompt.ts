@@ -1,3 +1,4 @@
+import { containsPhrase, containsRequiredUrl } from "./text.ts";
 /**
  * Smart Share Links — prompt construction.
  *
@@ -117,10 +118,10 @@ ${subjectRule}
 Output raw text ready to paste. No quotation marks around it, no markdown code fences, no preamble like "Here's a post:", no commentary about what you wrote.
 
 ## Hard rules
-1. Every fact listed under requiredFacts must appear, expressed in your own words. Do not drop any of them.
+1. Every fact listed under requiredFacts must appear verbatim as a complete statement, preserving every qualifier. Do not drop any of them.
 2. If the brief has a requiredUrl, include it exactly as given, character for character. Do not shorten it, wrap it, or add tracking parameters.
 3. Never state anything about the product that is not in the brief. No invented metrics, customers, prices, launch dates, awards, or capabilities. If you don't know it, it doesn't go in the post.
-4. Never make any claim listed under prohibitedClaims, and never paraphrase around one to say the same thing.
+4. Avoid every phrase listed under prohibitedClaims. The application checks normalized phrases; this is not a semantic fact-checker. Do not paraphrase around a prohibition.
 5. Write like a person, not a brand. No "excited to announce", no "thrilled to share", no "game-changer", no "revolutionize", no "I'm humbled", no rhetorical-question openers, no em-dash-and-tricolon marketing cadence.
 6. ${hashtagRule}
 7. Write in the same language as the campaign intent.
@@ -190,6 +191,8 @@ export function buildSmartSharePrompt(options: BuildPromptOptions): BuiltPrompt 
   };
 }
 
+export { normalizePhrase, containsRequiredUrl } from "./text.ts";
+
 // --- Post-generation checks ---
 
 export interface GeneratedCopy {
@@ -250,15 +253,14 @@ export function validateGeneratedCopy(
     warnings.push("The model returned an empty post.");
   }
 
-  if (campaign.requiredUrl && !text.includes(campaign.requiredUrl)) {
+  if (campaign.requiredUrl && !containsRequiredUrl(text, campaign.requiredUrl)) {
     // Trailing-slash and scheme drift are the common near-misses; report the
     // link as missing either way so the user can fix it before posting.
     warnings.push("The campaign link is missing from this draft. Regenerate or paste it in.");
   }
 
   for (const claim of campaign.prohibitedClaims ?? []) {
-    const needle = claim.toLowerCase().trim();
-    if (needle.length >= 4 && haystack.includes(needle)) {
+    if (containsPhrase(haystack, claim)) {
       warnings.push(`This draft contains a phrase the campaign prohibits: "${claim}".`);
     }
   }
@@ -269,10 +271,8 @@ export function validateGeneratedCopy(
     );
   }
 
-  // Required facts are deliberately not checked by string matching. The prompt
-  // asks the model to express them in its own words, so a literal search would
-  // flag correct paraphrases far more often than it caught real omissions. Fact
-  // coverage is enforced by the prompt and by the user reviewing the draft.
+  // The unattended finalizer below preserves missing fact text verbatim.
+  // This legacy warning API does not establish semantic truth or coverage.
 
   return { text, subject, warnings };
 }
@@ -296,9 +296,8 @@ export interface FinalizedCopy {
  *
  * - Missing required URL → appended. Deterministic and always correct, so this
  *   never costs a second model call.
- * - Prohibited claim present → blocked. These are the author's compliance line;
- *   quietly pasting a violation into someone's LinkedIn box is the worst
- *   outcome available, worse than pasting nothing.
+ * - Normalized blocked phrase present → refused after all repairs.
+ *   Semantic paraphrases are not covered; the UI states that limitation.
  * - Over a platform's hard limit → left alone. The user can see the length in
  *   the composer, and the platform itself will refuse to post it.
  */
@@ -314,20 +313,18 @@ export function finalizeShareCopy(
     return { text: "", blocked: "The writer returned an empty post." };
   }
 
-  const haystack = finalText.toLowerCase();
+  // Deterministic assembly preserves the supplied fact text, not semantic truth.
+  for (const fact of campaign.requiredFacts) {
+    if (!finalText.includes(fact)) finalText += `\n\n${fact}`;
+  }
+  if (campaign.requiredUrl && !containsRequiredUrl(finalText, campaign.requiredUrl)) {
+    finalText += `\n\n${campaign.requiredUrl}`;
+  }
+  // Run checks after every repair, including appended facts and URL.
   for (const claim of campaign.prohibitedClaims ?? []) {
-    const needle = claim.toLowerCase().trim();
-    if (needle.length >= 4 && haystack.includes(needle)) {
-      return {
-        text: finalText,
-        blocked: `This draft used a phrase the campaign prohibits ("${claim}"). Nothing was pasted.`,
-      };
+    if (containsPhrase(finalText, claim)) {
+      return { text: finalText, blocked: "This draft contains a blocked campaign phrase. Nothing was pasted." };
     }
   }
-
-  if (campaign.requiredUrl && !finalText.includes(campaign.requiredUrl)) {
-    finalText = `${finalText}\n\n${campaign.requiredUrl}`;
-  }
-
   return { text: finalText, blocked: null };
 }

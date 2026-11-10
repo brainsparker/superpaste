@@ -5,9 +5,10 @@ import AppKit
 final class ClipboardService {
     static let shared = ClipboardService()
 
-    private let pasteboard = NSPasteboard.general
+    private let pasteboard: NSPasteboard
+    private(set) var ownedChangeCount: Int?
 
-    private init() {}
+    init(pasteboard: NSPasteboard = .general) { self.pasteboard = pasteboard }
 
     /// Read current clipboard contents as string
     func read() -> String? {
@@ -15,9 +16,12 @@ final class ClipboardService {
     }
 
     /// Write string to clipboard, replacing existing contents
-    func write(_ string: String) {
-        pasteboard.clearContents()
-        pasteboard.setString(string, forType: .string)
+    @discardableResult
+    func write(_ string: String) -> Bool {
+        let count = pasteboard.clearContents()
+        let written = pasteboard.setString(string, forType: .string)
+        ownedChangeCount = pasteboard.changeCount == count ? count : nil
+        return written && ownedChangeCount != nil && pasteboard.string(forType: .string) == string
     }
 
     /// Full-fidelity snapshot of everything on the clipboard — images, files,
@@ -36,10 +40,12 @@ final class ClipboardService {
     }
 
     /// Put a snapshot back on the clipboard.
-    func restore(_ items: [NSPasteboardItem]) {
-        guard !items.isEmpty else { return }
-        pasteboard.clearContents()
-        pasteboard.writeObjects(items)
+    @discardableResult
+    func restore(_ items: [NSPasteboardItem]) -> Bool {
+        let count = pasteboard.clearContents()
+        let restored = items.isEmpty ? pasteboard.pasteboardItems?.isEmpty != false : pasteboard.writeObjects(items)
+        ownedChangeCount = pasteboard.changeCount == count ? count : nil
+        return restored && ownedChangeCount != nil
     }
 
     /// Get clipboard change count (useful for detecting external changes)

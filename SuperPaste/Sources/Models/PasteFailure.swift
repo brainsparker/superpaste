@@ -24,7 +24,7 @@ struct PasteFailure: Equatable {
         case .serverError, .invalidResponse, .emptyResponse, .truncatedResponse:
             (code, recovery) = (.providerResponse, .retry)
         case .timeout: (code, recovery) = (.timeout, .retry)
-        case .invalidAPIKey, .providerNotConfigured, .modelNotFound, .noModelsAvailable:
+        case .invalidAPIKey, .providerNotConfigured, .modelNotFound, .noModelsAvailable, .trialSignInRequired, .trialEmailUnverified:
             (code, recovery) = (.providerConfiguration, .openSettings)
         case .localServerUnreachable:
             (code, recovery) = (.network, .retry)

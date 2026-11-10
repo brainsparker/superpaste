@@ -79,6 +79,16 @@ final class HUDState: ObservableObject {
 
     // MARK: - Stage Transitions
 
+    func startCheckingAccount() {
+        cancelTasks()
+        isVisible = true
+        stage = .gathering
+        currentPhrase = "Checking your account…"
+        secondaryPhrase = nil
+        recoveryAction = nil
+        announce("Checking your SuperPaste account")
+    }
+
     func startGathering() {
         cancelTasks()
         isVisible = true
@@ -122,10 +132,10 @@ final class HUDState: ObservableObject {
     func showReady() {
         cancelTasks()
         stage = .ready
-        currentPhrase = "Pasted"
-        secondaryPhrase = "Right where you left off."
+        currentPhrase = "Paste sent"
+        secondaryPhrase = "Copy Last Response is available in the menu bar."
         recoveryAction = nil
-        announce("Response pasted")
+        announce("Paste sent. The response is also available in the menu bar.")
 
         // Play sound if enabled
         if playSoundOnReady {

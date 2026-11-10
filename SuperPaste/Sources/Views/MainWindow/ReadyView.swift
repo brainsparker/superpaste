@@ -37,7 +37,9 @@ struct ReadyView: View {
                 Divider()
             }
 
-            if !cardState.showReturningCard {
+            if !appState.isLicensed && !appState.usingOwnAPIKey && !appState.trialAccount.hasSession {
+                TrialAccountView().padding(24)
+            } else if !cardState.showReturningCard {
                 firstUseSection.padding(24)
             } else {
                 returningUserSection.padding(24)
@@ -70,6 +72,8 @@ struct ReadyView: View {
                 } else if let error = appState.lastError {
                     Image(systemName: "exclamationmark.triangle.fill").foregroundColor(.orange)
                     Text(error).foregroundColor(.secondary).lineLimit(2)
+                } else if !appState.isLicensed && !appState.usingOwnAPIKey && !appState.trialAccount.hasSession {
+                    Text("Sign in to start your trial").foregroundStyle(.secondary)
                 } else {
                     Image(systemName: "checkmark.circle.fill").foregroundColor(.green)
                     Text("Ready to paste").foregroundColor(.green).fontWeight(.medium)

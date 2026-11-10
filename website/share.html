@@ -240,7 +240,7 @@
     var el = function (id) { return document.getElementById(id); };
     var setText = function (node, value) { node.textContent = value == null ? '' : String(value); };
 
-    var state = { token: null, campaign: null, platforms: [] };
+    var state = { token: null, campaign: null, platforms: [], link: null, generation: 0 };
 
     // --- Rendering ---------------------------------------------------------
     // Every value below came from an untrusted link, so text is set via
@@ -295,7 +295,7 @@
 
       host.appendChild(field('The message', campaign.intent));
       if (campaign.requiredFacts && campaign.requiredFacts.length) {
-        host.appendChild(listField('Facts every post keeps', campaign.requiredFacts));
+        host.appendChild(listField('Facts included verbatim', campaign.requiredFacts));
       }
       if (campaign.requiredUrl) {
         host.appendChild(field('Link included every time', campaign.requiredUrl));
@@ -305,7 +305,7 @@
         host.appendChild(field('Hashtags', campaign.hashtags.map(function (t) { return '#' + t; }).join(' ')));
       }
       if (campaign.prohibitedClaims && campaign.prohibitedClaims.length) {
-        host.appendChild(listField('Never claimed', campaign.prohibitedClaims));
+        host.appendChild(listField('Blocked phrases (normalized matching)', campaign.prohibitedClaims));
       }
       if (campaign.expiresAt) {
         var when = new Date(campaign.expiresAt);
@@ -358,7 +358,8 @@
 
     el('copy').addEventListener('click', function () {
       // The current URL *is* the campaign link, fragment included.
-      copyToClipboard(location.href).then(function () {
+      if (!state.link) return;
+      copyToClipboard(state.link).then(function () {
         var node = el('status');
         setText(node, 'Copied. Now click into a post box and press ⌥V.');
         node.className = 'status ok';
@@ -382,7 +383,15 @@
       }
     }
 
+    function loadCampaign() {
+    var generation = ++state.generation;
+    state.link = null;
+    el('copy').disabled = true;
+    el('flow').classList.add('hidden');
+    el('fatal').classList.add('hidden');
+    el('loading').classList.remove('hidden');
     state.token = readToken();
+    var token = state.token;
     if (!state.token) {
       fatal(
         'This link is missing its campaign',
@@ -400,6 +409,7 @@
         return { ok: response.ok, data: data };
       });
     }).then(function (result) {
+      if (generation !== state.generation) return;
       if (!result.ok) {
         if (result.data && result.data.error === 'campaign_expired') {
           fatal('This campaign has ended', 'Whoever made this link set it to expire, and that date has passed.');
@@ -409,6 +419,8 @@
         return;
       }
 
+      state.link = location.origin + location.pathname + '#c=' + encodeURIComponent(token);
+      el('copy').disabled = false;
       state.campaign = result.data.campaign;
       state.platforms = result.data.platforms || [];
 
@@ -418,8 +430,12 @@
       el('loading').classList.add('hidden');
       el('flow').classList.remove('hidden');
     }).catch(function () {
+      if (generation !== state.generation) return;
       fatal("Couldn't load this campaign", 'SuperPaste could not be reached. Check your connection and reload.');
     });
+    }
+    window.addEventListener('hashchange', loadCampaign);
+    loadCampaign();
   })();
   </script>
 

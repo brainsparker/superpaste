@@ -13,6 +13,8 @@ final class LLMService {
         case rateLimited
         case dailyLimitReached
         case trialExpired
+        case trialSignInRequired
+        case trialEmailUnverified
         case licenseInvalid
         case serverError(Int)
         case timeout
@@ -47,6 +49,10 @@ final class LLMService {
                 return "Rate limited. Try again in a moment."
             case .dailyLimitReached:
                 return "Daily limit reached. Resets at midnight."
+            case .trialSignInRequired:
+                return "Sign in to your verified trial account in Settings."
+            case .trialEmailUnverified:
+                return "Verify your email with the sign-in provider, then sign in again."
             case .trialExpired:
                 return "Your free trial has ended."
             case .licenseInvalid:
@@ -94,6 +100,10 @@ final class LLMService {
                 return "Too many requests \u{2014} wait a moment and try again."
             case .dailyLimitReached:
                 return "Daily limit reached. Resets at midnight."
+            case .trialSignInRequired:
+                return "Sign in to your trial account in Settings before pasting."
+            case .trialEmailUnverified:
+                return "Verify your email, then sign in again in Settings."
             case .trialExpired:
                 return "Trial ended \u{2014} subscribe or add your own API key"
             case .licenseInvalid:
@@ -154,9 +164,18 @@ final class LLMService {
         return config
     }
 
+    static func config(for provider: LLMProviderID) -> LLMProviderConfig {
+        guard let data = UserDefaults.standard.data(forKey: "llmProviderConfig.\(provider.rawValue)"),
+              let config = try? JSONDecoder().decode(LLMProviderConfig.self, from: data), config.provider == provider else {
+            return .init(provider: provider, model: provider.defaultModel, customEndpoint: "")
+        }
+        return config
+    }
+
     static func saveConfig(_ config: LLMProviderConfig) {
         guard let data = try? JSONEncoder().encode(config) else { return }
         UserDefaults.standard.set(data, forKey: "llmProviderConfig")
+        UserDefaults.standard.set(data, forKey: "llmProviderConfig.\(config.provider.rawValue)")
     }
 
     /// Applies common headers that identify the request as coming from SuperPaste
@@ -220,7 +239,7 @@ final class LLMService {
             guard let endpoint = config.resolvedEndpoint else {
                 throw LLMError.providerNotConfigured
             }
-            let apiKey = UserCredentialStore.apiKey(for: config.provider)
+            let apiKey = UserCredentialStore.apiKey(for: config.provider, endpoint: endpoint)
             let model = try await resolveModel(for: config, endpoint: endpoint, apiKey: apiKey)
             return try await processWithOpenAICompatible(
                 baseURL: endpoint,
@@ -316,9 +335,7 @@ final class LLMService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         Self.applyAttributionHeaders(&urlRequest)
-        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
-            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
-        }
+        try await applyHostedCredentials(&urlRequest)
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
@@ -358,9 +375,7 @@ final class LLMService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         Self.applyAttributionHeaders(&urlRequest)
-        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
-            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
-        }
+        try await applyHostedCredentials(&urlRequest)
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
 
         do {
@@ -372,6 +387,16 @@ final class LLMService {
         return try await sendHostedRequest(urlRequest)
     }
 
+    private func applyHostedCredentials(_ request: inout URLRequest) async throws {
+        if let key = LicenseService.shared.currentLicenseKey, !key.isEmpty {
+            request.setValue(key, forHTTPHeaderField: "X-License-Key")
+        } else {
+            let authorization = try await TrialAccountService.shared.authorizationHeader()
+            try Task.checkCancellation()
+            request.setValue(authorization, forHTTPHeaderField: "Authorization")
+        }
+    }
+
     /// Shared tail of every hosted-backend call: status mapping and the
     /// Anthropic-shaped response parse. Used by normal pastes and Magic Copy.
     private func sendHostedRequest(_ urlRequest: URLRequest) async throws -> String {
@@ -381,13 +406,18 @@ final class LLMService {
             throw LLMError.invalidResponse
         }
 
+        if let milliseconds = httpResponse.value(forHTTPHeaderField: "X-SuperPaste-Trial-Expires-At").flatMap(Double.init), milliseconds.isFinite {
+            await TrialAccountService.shared.recordTrialExpiration(Date(timeIntervalSince1970: milliseconds/1000), authorization: urlRequest.value(forHTTPHeaderField: "Authorization"))
+        }
         switch httpResponse.statusCode {
         case 200...299:
             break
-        case 402:
-            throw LLMError.trialExpired
-        case 403:
-            throw LLMError.licenseInvalid
+        case 401...403:
+            let failure = Self.hostedAccessError(status: httpResponse.statusCode, data: data)
+            if case .trialExpired = failure {
+                await TrialAccountService.shared.recordTrialExpiration(Date(), authorization: urlRequest.value(forHTTPHeaderField: "Authorization"))
+            }
+            throw failure
         case 422:
             // Magic Copy only: the campaign link is unusable, or the draft broke
             // one of the campaign's guardrails and must not be pasted.
@@ -413,6 +443,19 @@ final class LLMService {
         }
 
         return try parseAnthropicResponse(data: data)
+    }
+
+    /// Only our explicit entitlement error codes can change account/trial UI.
+    /// An upstream 401/402 must not look like a signed-out or expired trial.
+    static func hostedAccessError(status: Int, data: Data) -> LLMError {
+        let code = (try? JSONDecoder().decode(WorkerErrorResponse.self, from: data))?.error
+        switch (status, code) {
+        case (401, "trial_sign_in_required"), (401, "trial_session_invalid"): return .trialSignInRequired
+        case (402, "trial_expired"): return .trialExpired
+        case (403, "trial_email_unverified"): return .trialEmailUnverified
+        case (403, "license_invalid"): return .licenseInvalid
+        default: return .serverError(status)
+        }
     }
 
     // MARK: - Anthropic direct
@@ -521,7 +564,7 @@ final class LLMService {
     }
 
     /// Parse an Anthropic-format response body.
-    private func parseAnthropicResponse(data: Data) throws -> String {
+    func parseAnthropicResponse(data: Data) throws -> String {
         let anthropicResponse: AnthropicResponse
         do {
             anthropicResponse = try JSONDecoder().decode(AnthropicResponse.self, from: data)
@@ -533,19 +576,16 @@ final class LLMService {
             throw LLMError.serverError(500)
         }
 
-        guard let content = anthropicResponse.content,
-              let firstContent = content.first,
-              firstContent.type == "text",
-              let text = firstContent.text,
-              !text.isEmpty else {
-            throw LLMError.emptyResponse
-        }
-
+        let text = (anthropicResponse.content ?? []).filter { $0.type == "text" }.compactMap(\.text).joined(separator: "\n")
         if anthropicResponse.stop_reason == "max_tokens" {
             throw LLMError.truncatedResponse
         }
 
+        guard anthropicResponse.stop_reason == "end_turn" || anthropicResponse.stop_reason == "stop_sequence" else {
+            throw LLMError.invalidResponse
+        }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LLMError.emptyResponse }
         if trimmed.contains(APIConfig.unclearSentinel) {
             throw LLMError.unclearContext
         }
@@ -576,11 +616,12 @@ final class LLMService {
         }
     }
 
-    private struct OpenAIResponse: Decodable {
+    struct OpenAIResponse: Decodable {
         let choices: [Choice]?
         let error: OpenAIError?
 
         struct Choice: Decodable {
+            let finish_reason: String?
             let message: Message
             struct Message: Decodable {
                 let content: String?
@@ -685,6 +726,10 @@ final class LLMService {
             throw LLMError.serverError(httpResponse.statusCode)
         }
 
+        return try parseOpenAIResponse(data: data)
+    }
+
+    func parseOpenAIResponse(data: Data) throws -> String {
         let openAIResponse: OpenAIResponse
         do {
             openAIResponse = try JSONDecoder().decode(OpenAIResponse.self, from: data)
@@ -705,7 +750,10 @@ final class LLMService {
             throw LLMError.emptyResponse
         }
 
+        if choice.finish_reason == "length" { throw LLMError.truncatedResponse }
+        guard choice.finish_reason == "stop" else { throw LLMError.invalidResponse }
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { throw LLMError.emptyResponse }
         if trimmed.contains(APIConfig.unclearSentinel) {
             throw LLMError.unclearContext
         }
@@ -716,8 +764,9 @@ final class LLMService {
     // MARK: - Shared
 
     private func performRequest(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        try Task.checkCancellation()
         do {
-            return try await URLSession.shared.data(for: request)
+            return try await ProviderTransport.session.data(for: request)
         } catch let error as URLError where error.code == .timedOut {
             throw LLMError.timeout
         } catch {

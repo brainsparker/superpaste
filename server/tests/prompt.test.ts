@@ -249,10 +249,10 @@ test("a prohibited claim in the output is reported", () => {
   assert.ok(result.warnings.some((w) => w.includes("prohibits")));
 });
 
-test("prohibited-claim matching ignores very short phrases to avoid false positives", () => {
+test("prohibited-phrase matching also enforces short entries", () => {
   const campaign = campaignFixture({ requiredUrl: undefined, prohibitedClaims: ["AI"] });
   const result = validateGeneratedCopy("An AI tool for Mac.", campaign, "x");
-  assert.equal(result.warnings.length, 0);
+  assert.ok(result.warnings.some(w => w.includes("prohibits")));
 });
 
 test("copy over a platform's hard limit is reported", () => {

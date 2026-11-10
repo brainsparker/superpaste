@@ -1,16 +1,17 @@
 #!/bin/bash
 #
-# release.sh — build, sign, (optionally notarize), package, and publish
+# release.sh — build, sign, notarize, package, and publish
 # a SuperPaste release to GitHub.
 #
-# Usage: scripts/release.sh [--skip-notarize] [--local]
+# Usage: scripts/release.sh [--local] [--preflight-only]
+# --skip-notarize is permitted only with --local.
 #
 # --local stops after building dist/SuperPaste.dmg (no appcast, no GitHub
 # release) so the install window and first-launch flow can be tested.
 #
 # Signing: uses a "Developer ID Application" identity when one exists
-# (required for downloads to pass Gatekeeper). Falls back to the local
-# "SuperPaste Developer" cert with a loud warning so test releases still build.
+# (required for public releases). Local-only artifacts may fall back to the
+# "SuperPaste Developer" certificate.
 #
 # Notarization: runs automatically when a `notarytool` keychain profile named
 # "superpaste-notary" exists. Create it once after Apple Developer enrollment:
@@ -28,9 +29,11 @@ UPDATES_DIR="$DIST/updates"
 APPCAST="$UPDATES_DIR/appcast.xml"
 SKIP_NOTARIZE=false
 LOCAL_ONLY=false
+PREFLIGHT_ONLY=false
 for arg in "$@"; do
     case "$arg" in
         --skip-notarize) SKIP_NOTARIZE=true ;;
+        --preflight-only) PREFLIGHT_ONLY=true ;;
         --local) LOCAL_ONLY=true; SKIP_NOTARIZE=true ;;
         *) echo "Unknown option: $arg" >&2; exit 1 ;;
     esac
@@ -39,20 +42,40 @@ done
 VERSION=$(plutil -extract CFBundleShortVersionString raw "$SPM/Resources/Info.plist")
 TAG="v$VERSION"
 
+PREFLIGHT_ARGS=(--repo "$REPO")
+if [ "$LOCAL_ONLY" = true ]; then PREFLIGHT_ARGS+=(--local); fi
+if [ "$SKIP_NOTARIZE" = true ]; then PREFLIGHT_ARGS+=(--skip-notarize); fi
+python3 "$REPO/scripts/release_policy.py" "${PREFLIGHT_ARGS[@]}"
+if [ "$PREFLIGHT_ONLY" = true ]; then exit 0; fi
+SOURCE_COMMIT=$(git -C "$REPO" rev-parse HEAD)
+
 echo "==> Building SuperPaste $VERSION"
 cd "$SPM"
-swift build -c release --product SuperPaste
+# Separate slices work with Command Line Tools as well as Xcode.
+swift build -c release --arch arm64 --product SuperPaste
+ARM_BIN=$(swift build -c release --arch arm64 --show-bin-path)
+swift build -c release --arch x86_64 --product SuperPaste
+INTEL_BIN=$(swift build -c release --arch x86_64 --show-bin-path)
+BIN_DIR="$SPM/.build/universal-release"
+mkdir -p "$BIN_DIR"
+lipo -create "$ARM_BIN/SuperPaste" "$INTEL_BIN/SuperPaste" -output "$BIN_DIR/SuperPaste"
+lipo "$BIN_DIR/SuperPaste" -verify_arch arm64 x86_64
+if [ -d "$ARM_BIN/SuperPaste_SuperPaste.bundle" ]; then
+    ditto "$ARM_BIN/SuperPaste_SuperPaste.bundle" "$BIN_DIR/SuperPaste_SuperPaste.bundle"
+fi
 
 echo "==> Packaging .app"
 rm -rf "$DIST"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$SPM/.build/release/SuperPaste"  "$APP/Contents/MacOS/"
+cp "$BIN_DIR/SuperPaste"  "$APP/Contents/MacOS/"
 cp "$SPM/Resources/Info.plist"       "$APP/Contents/"
 cp "$SPM/Resources/AppIcon.icns"     "$APP/Contents/Resources/"
-if [ -d "$SPM/.build/release/SuperPaste_SuperPaste.bundle" ]; then
-    cp -r "$SPM/.build/release/SuperPaste_SuperPaste.bundle/." "$APP/Contents/Resources/"
+if [ -d "$BIN_DIR/SuperPaste_SuperPaste.bundle" ]; then
+    cp -r "$BIN_DIR/SuperPaste_SuperPaste.bundle/." "$APP/Contents/Resources/"
 fi
 "$REPO/scripts/embed-sparkle.sh" "$SPM" "$APP"
+/usr/libexec/PlistBuddy -c "Add :SuperPasteSourceCommit string $SOURCE_COMMIT" "$APP/Contents/Info.plist"
+python3 "$REPO/scripts/release_policy.py" --verify-app "$APP"
 
 echo "==> Signing"
 DEV_ID=$(security find-identity -v -p codesigning | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"') || true
@@ -60,6 +83,7 @@ if [ -n "${DEV_ID:-}" ]; then
     echo "    Using $DEV_ID"
     codesign -s "$DEV_ID" --force --deep --options runtime --timestamp "$APP"
 else
+    if [ "$LOCAL_ONLY" != true ]; then echo "Developer ID is required for public releases." >&2; exit 1; fi
     echo ""
     echo "    ⚠️  No 'Developer ID Application' certificate found."
     echo "    Signing with the local 'SuperPaste Developer' cert — downloads"
@@ -130,10 +154,15 @@ fi
 if [ "$SKIP_NOTARIZE" = false ] && [ -n "${DEV_ID:-}" ] && \
    xcrun notarytool history --keychain-profile superpaste-notary >/dev/null 2>&1; then
     echo "==> Notarizing (this can take a few minutes)"
-    xcrun notarytool submit "$DMG" --keychain-profile superpaste-notary --wait
+    NOTARY_RESULT="$DIST/notarization.json"
+    xcrun notarytool submit "$DMG" --keychain-profile superpaste-notary --wait --output-format json > "$NOTARY_RESULT"
+    python3 -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("status") == "Accepted" else "Notarization was not accepted")' "$NOTARY_RESULT"
     xcrun stapler staple "$DMG"
+    xcrun stapler validate "$DMG"
+    codesign --verify --deep --strict "$APP"
 else
-    echo "==> Skipping notarization (no Developer ID or no 'superpaste-notary' profile)"
+    if [ "$LOCAL_ONLY" != true ]; then echo "Notarization is required before publishing." >&2; exit 1; fi
+    echo "==> Local artifact: notarization skipped"
 fi
 
 if [ "$LOCAL_ONLY" = true ]; then
@@ -171,6 +200,11 @@ if [ ! -f "$APPCAST" ]; then
     exit 1
 fi
 
+if [ "$(git -C "$REPO" rev-parse HEAD)" != "$SOURCE_COMMIT" ]; then
+    echo "Source commit changed during packaging; refusing to publish." >&2
+    exit 1
+fi
+python3 "$REPO/scripts/release_policy.py" --repo "$REPO"
 echo "==> Publishing GitHub release $TAG"
 cd "$REPO"
 RELEASE_ASSETS=("$DMG" "$APPCAST")
@@ -178,15 +212,12 @@ if [ -f "$NOTES_ASSET" ]; then
     RELEASE_ASSETS+=("$NOTES_ASSET")
 fi
 
-if gh release view "$TAG" >/dev/null 2>&1; then
-    gh release upload "$TAG" "${RELEASE_ASSETS[@]}" --clobber
-    echo "    Updated existing release $TAG"
-elif [ -f "$NOTES_SOURCE" ]; then
-    gh release create "$TAG" "${RELEASE_ASSETS[@]}" \
+if [ -f "$NOTES_SOURCE" ]; then
+    gh release create "$TAG" "${RELEASE_ASSETS[@]}" --target "$SOURCE_COMMIT" \
         --title "SuperPaste $VERSION" \
         --notes-file "$NOTES_SOURCE"
 else
-    gh release create "$TAG" "${RELEASE_ASSETS[@]}" \
+    gh release create "$TAG" "${RELEASE_ASSETS[@]}" --target "$SOURCE_COMMIT" \
         --title "SuperPaste $VERSION" \
         --notes "Press ⌥V. Text appears.
 

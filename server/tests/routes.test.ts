@@ -154,9 +154,9 @@ test("an oversized body is rejected before it is parsed", async () => {
   const response = await call(
     req("/v1/smart-share/campaigns", { rawBody: JSON.stringify({ pad: "x".repeat(40_000) }) }),
   );
-  assert.equal(response?.status, 400);
+  assert.equal(response?.status, 413);
   const data = (await response!.json()) as { error: string };
-  assert.equal(data.error, "payload_too_large");
+  assert.equal(data.error, "bad_request");
 });
 
 // --- POST /resolve ---------------------------------------------------------

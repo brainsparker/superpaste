@@ -18,6 +18,8 @@ struct TrialExpiredView: View {
 
             Divider()
 
+            TrialAccountView().padding(.horizontal, 24)
+
             licenseSection
                 .padding(24)
         }

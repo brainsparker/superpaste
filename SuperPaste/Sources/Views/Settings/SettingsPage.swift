@@ -39,6 +39,8 @@ struct SettingsPage: View {
 
                 Divider()
 
+                if (!appState.isLicensed && !appState.usingOwnAPIKey) || appState.trialAccount.hasSession { TrialAccountView() }
+
                 licenseSection
 
                 Divider()
@@ -49,7 +51,15 @@ struct SettingsPage: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .onChange(of: selectedProvider) { _, newProvider in
-            saveProviderChange(provider: newProvider)
+            LLMService.saveConfig(appState.providerConfig)
+            discoveryGeneration += 1
+            let config = LLMService.config(for: newProvider)
+            customModelInput = config.model
+            customEndpointInput = config.customEndpoint
+            apiKeyInput = ""
+            discoveredModels = []
+            connectionStatus = .idle
+            appState.setProviderConfig(config)
         }
     }
 
@@ -65,6 +75,7 @@ struct SettingsPage: View {
 
     @State private var discoveredModels: [LocalModelServer.Model] = []
     @State private var connectionStatus: ConnectionStatus = .idle
+    @State private var discoveryGeneration = 0
 
     private var aiProviderSection: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -105,6 +116,7 @@ struct SettingsPage: View {
 
             // API key section per provider
             apiKeyField(for: selectedProvider)
+                .disabled(selectedProvider.supportsCustomEndpoint && customEndpointInput != appState.providerConfig.customEndpoint)
         }
         .padding()
         .background(
@@ -118,7 +130,7 @@ struct SettingsPage: View {
 
     /// Changes to either value re-run model discovery.
     private var discoveryKey: String {
-        "\(selectedProvider.rawValue)|\(customEndpointInput)"
+        "\(appState.providerConfig.provider.rawValue)|\(appState.providerConfig.customEndpoint)"
     }
 
     private var endpointField: some View {
@@ -127,9 +139,14 @@ struct SettingsPage: View {
                 .font(.subheadline.weight(.medium))
             TextField(selectedProvider.endpointPlaceholder, text: $customEndpointInput)
                 .textFieldStyle(.roundedBorder)
+                .onSubmit { commitEndpoint() }
                 .onChange(of: customEndpointInput) { _, _ in
-                    saveProviderChange(provider: selectedProvider)
+                    discoveryGeneration += 1
+                    discoveredModels = []
+                    connectionStatus = .idle
                 }
+            Button("Connect") { commitEndpoint() }
+                .disabled(LocalEndpoint.chatCompletionsURL(from: customEndpointInput).isEmpty && !customEndpointInput.isEmpty)
             Text(endpointHelpText)
                 .font(.caption)
                 .foregroundColor(.secondary)
@@ -240,20 +257,19 @@ struct SettingsPage: View {
     /// server) and on demand from the refresh button.
     @MainActor
     private func refreshModels(debounce: Bool) async {
-        guard selectedProvider.supportsModelDiscovery else {
+        discoveryGeneration += 1
+        let generation = discoveryGeneration
+        let config = appState.providerConfig
+        guard config.provider == selectedProvider, config.customEndpoint == customEndpointInput,
+              selectedProvider.supportsModelDiscovery else {
             connectionStatus = .idle
             discoveredModels = []
             return
         }
         if debounce {
             try? await Task.sleep(for: .milliseconds(400))
-            if Task.isCancelled { return }
+            if Task.isCancelled || generation != discoveryGeneration || (config.provider != appState.providerConfig.provider || config.resolvedEndpoint != appState.providerConfig.resolvedEndpoint) { return }
         }
-        let config = LLMProviderConfig(
-            provider: selectedProvider,
-            model: customModelInput,
-            customEndpoint: customEndpointInput
-        )
         guard let endpoint = config.resolvedEndpoint else {
             connectionStatus = .idle
             discoveredModels = []
@@ -263,15 +279,15 @@ struct SettingsPage: View {
         do {
             let models = try await LocalModelServer.listModels(
                 chatCompletionsURL: endpoint,
-                apiKey: UserCredentialStore.apiKey(for: selectedProvider)
+                apiKey: UserCredentialStore.apiKey(for: config.provider, endpoint: endpoint)
             )
-            if Task.isCancelled { return }
+            if Task.isCancelled || generation != discoveryGeneration || (config.provider != appState.providerConfig.provider || config.resolvedEndpoint != appState.providerConfig.resolvedEndpoint) { return }
             discoveredModels = models
             connectionStatus = models.isEmpty
                 ? .failed(selectedProvider == .ollama ? "Connected, no models yet. Run: ollama pull qwen3-vl" : "Connected, no models loaded")
                 : .connected(modelCount: models.count)
         } catch let error as LocalModelServer.ListError {
-            if Task.isCancelled { return }
+            if Task.isCancelled || generation != discoveryGeneration || (config.provider != appState.providerConfig.provider || config.resolvedEndpoint != appState.providerConfig.resolvedEndpoint) { return }
             discoveredModels = []
             switch error {
             case .unreachable:
@@ -282,7 +298,7 @@ struct SettingsPage: View {
                 connectionStatus = .failed(error.errorDescription ?? "Couldn't reach the server")
             }
         } catch {
-            if Task.isCancelled { return }
+            if Task.isCancelled || generation != discoveryGeneration || (config.provider != appState.providerConfig.provider || config.resolvedEndpoint != appState.providerConfig.resolvedEndpoint) { return }
             discoveredModels = []
             connectionStatus = .failed("Couldn't reach the server")
         }
@@ -291,7 +307,7 @@ struct SettingsPage: View {
     @ViewBuilder
     private func apiKeyField(for provider: LLMProviderID) -> some View {
         if provider.isBringYourOwnKey {
-            let hasKey = UserCredentialStore.apiKey(for: provider) != nil
+            let hasKey = UserCredentialStore.apiKey(for: provider, endpoint: appState.providerConfig.resolvedEndpoint) != nil
             VStack(alignment: .leading, spacing: 8) {
                 if hasKey {
                     HStack(spacing: 8) {
@@ -304,8 +320,10 @@ struct SettingsPage: View {
                             .fixedSize(horizontal: false, vertical: true)
                         Spacer()
                         Button("Remove") {
+                            discoveryGeneration += 1
                             appState.clearAPIKey(for: provider)
                             apiKeyInput = ""
+                            Task { await refreshModels(debounce: false) }
                         }
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -361,11 +379,22 @@ struct SettingsPage: View {
         }
     }
 
+    private func commitEndpoint() {
+        discoveryGeneration += 1
+        let config = LLMProviderConfig(provider: selectedProvider, model: customModelInput, customEndpoint: customEndpointInput)
+        guard config.resolvedEndpoint != nil else {
+            connectionStatus = .failed("Enter a valid HTTP or HTTPS server address.")
+            return
+        }
+        appState.setProviderConfig(config)
+        Task { await refreshModels(debounce: false) }
+    }
+
     private func saveProviderChange(provider: LLMProviderID) {
         let config = LLMProviderConfig(
             provider: provider,
             model: provider.supportsCustomModel ? customModelInput : provider.defaultModel,
-            customEndpoint: provider.supportsCustomEndpoint ? customEndpointInput : ""
+            customEndpoint: provider.supportsCustomEndpoint ? appState.providerConfig.customEndpoint : ""
         )
         appState.setProviderConfig(config)
     }

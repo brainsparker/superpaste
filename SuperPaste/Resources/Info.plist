@@ -8,6 +8,11 @@
     <string>SuperPaste</string>
     <key>CFBundleIdentifier</key>
     <string>com.superpaste.app</string>
+    <key>CFBundleURLTypes</key>
+    <array><dict>
+        <key>CFBundleURLName</key><string>Trial sign-in</string>
+        <key>CFBundleURLSchemes</key><array><string>com.superpaste.app</string></array>
+    </dict></array>
     <key>CFBundleName</key>
     <string>SuperPaste</string>
     <key>CFBundleDisplayName</key>

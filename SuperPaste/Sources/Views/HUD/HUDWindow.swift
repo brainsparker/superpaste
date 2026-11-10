@@ -35,6 +35,7 @@ final class HUDPanel: NSPanel {
 @MainActor
 final class HUDWindowController: ObservableObject {
     private var panel: HUDPanel?
+    private var visibilityGeneration = 0
     private var hostingView: NSHostingView<HUDContentView>?
     private let hudState: HUDState
     private var cancellables = Set<AnyCancellable>()
@@ -55,7 +56,10 @@ final class HUDWindowController: ObservableObject {
     }
 
     func show() {
+        visibilityGeneration += 1
         guard panel == nil else {
+            panel?.alphaValue = 1
+            panel?.orderFrontRegardless()
             resizeToFit()
             return
         }
@@ -85,6 +89,8 @@ final class HUDWindowController: ObservableObject {
 
     func hide() {
         guard let panel = panel else { return }
+        visibilityGeneration += 1
+        let generation = visibilityGeneration
 
         // Use explicit animation with completion
         NSAnimationContext.runAnimationGroup { context in
@@ -94,9 +100,10 @@ final class HUDWindowController: ObservableObject {
             panel.animator().alphaValue = 0
         } completionHandler: { [weak self] in
             DispatchQueue.main.async {
-                self?.panel?.orderOut(nil)
-                self?.panel = nil
-                self?.hostingView = nil
+                guard let self, self.visibilityGeneration == generation, self.panel === panel else { return }
+                panel.orderOut(nil)
+                self.panel = nil
+                self.hostingView = nil
             }
         }
     }
