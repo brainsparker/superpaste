@@ -77,6 +77,7 @@ cp "$SPM/Resources/Info.plist"       "$APP/Contents/"
 cp "$SPM/Resources/AppIcon.icns"     "$APP/Contents/Resources/"
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier $DEV_BUNDLE_ID" "$APP/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleURLTypes:0:CFBundleURLSchemes:0 $DEV_BUNDLE_ID" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName $DEV_APP_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName $DEV_APP_NAME" "$APP/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $DEV_EXECUTABLE" "$APP/Contents/Info.plist"

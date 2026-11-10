@@ -39,6 +39,8 @@ struct SettingsPage: View {
 
                 Divider()
 
+                if (!appState.isLicensed && !appState.usingOwnAPIKey) || appState.trialAccount.hasSession { TrialAccountView() }
+
                 licenseSection
 
                 Divider()

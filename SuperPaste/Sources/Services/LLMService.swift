@@ -13,6 +13,8 @@ final class LLMService {
         case rateLimited
         case dailyLimitReached
         case trialExpired
+        case trialSignInRequired
+        case trialEmailUnverified
         case licenseInvalid
         case serverError(Int)
         case timeout
@@ -47,6 +49,10 @@ final class LLMService {
                 return "Rate limited. Try again in a moment."
             case .dailyLimitReached:
                 return "Daily limit reached. Resets at midnight."
+            case .trialSignInRequired:
+                return "Sign in to your verified trial account in Settings."
+            case .trialEmailUnverified:
+                return "Verify your email with the sign-in provider, then sign in again."
             case .trialExpired:
                 return "Your free trial has ended."
             case .licenseInvalid:
@@ -94,6 +100,10 @@ final class LLMService {
                 return "Too many requests \u{2014} wait a moment and try again."
             case .dailyLimitReached:
                 return "Daily limit reached. Resets at midnight."
+            case .trialSignInRequired:
+                return "Sign in to your trial account in Settings before pasting."
+            case .trialEmailUnverified:
+                return "Verify your email, then sign in again in Settings."
             case .trialExpired:
                 return "Trial ended \u{2014} subscribe or add your own API key"
             case .licenseInvalid:
@@ -325,9 +335,7 @@ final class LLMService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         Self.applyAttributionHeaders(&urlRequest)
-        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
-            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
-        }
+        try await applyHostedCredentials(&urlRequest)
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
         urlRequest.httpBody = try JSONEncoder().encode(request)
 
@@ -367,9 +375,7 @@ final class LLMService {
         urlRequest.httpMethod = "POST"
         urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
         Self.applyAttributionHeaders(&urlRequest)
-        if let licenseKey = LicenseService.shared.currentLicenseKey, !licenseKey.isEmpty {
-            urlRequest.setValue(licenseKey, forHTTPHeaderField: "X-License-Key")
-        }
+        try await applyHostedCredentials(&urlRequest)
         urlRequest.timeoutInterval = APIConfig.timeoutInterval
 
         do {
@@ -381,6 +387,16 @@ final class LLMService {
         return try await sendHostedRequest(urlRequest)
     }
 
+    private func applyHostedCredentials(_ request: inout URLRequest) async throws {
+        if let key = LicenseService.shared.currentLicenseKey, !key.isEmpty {
+            request.setValue(key, forHTTPHeaderField: "X-License-Key")
+        } else {
+            let authorization = try await TrialAccountService.shared.authorizationHeader()
+            try Task.checkCancellation()
+            request.setValue(authorization, forHTTPHeaderField: "Authorization")
+        }
+    }
+
     /// Shared tail of every hosted-backend call: status mapping and the
     /// Anthropic-shaped response parse. Used by normal pastes and Magic Copy.
     private func sendHostedRequest(_ urlRequest: URLRequest) async throws -> String {
@@ -390,13 +406,18 @@ final class LLMService {
             throw LLMError.invalidResponse
         }
 
+        if let milliseconds = httpResponse.value(forHTTPHeaderField: "X-SuperPaste-Trial-Expires-At").flatMap(Double.init), milliseconds.isFinite {
+            await TrialAccountService.shared.recordTrialExpiration(Date(timeIntervalSince1970: milliseconds/1000), authorization: urlRequest.value(forHTTPHeaderField: "Authorization"))
+        }
         switch httpResponse.statusCode {
         case 200...299:
             break
-        case 402:
-            throw LLMError.trialExpired
-        case 403:
-            throw LLMError.licenseInvalid
+        case 401...403:
+            let failure = Self.hostedAccessError(status: httpResponse.statusCode, data: data)
+            if case .trialExpired = failure {
+                await TrialAccountService.shared.recordTrialExpiration(Date(), authorization: urlRequest.value(forHTTPHeaderField: "Authorization"))
+            }
+            throw failure
         case 422:
             // Magic Copy only: the campaign link is unusable, or the draft broke
             // one of the campaign's guardrails and must not be pasted.
@@ -422,6 +443,19 @@ final class LLMService {
         }
 
         return try parseAnthropicResponse(data: data)
+    }
+
+    /// Only our explicit entitlement error codes can change account/trial UI.
+    /// An upstream 401/402 must not look like a signed-out or expired trial.
+    static func hostedAccessError(status: Int, data: Data) -> LLMError {
+        let code = (try? JSONDecoder().decode(WorkerErrorResponse.self, from: data))?.error
+        switch (status, code) {
+        case (401, "trial_sign_in_required"), (401, "trial_session_invalid"): return .trialSignInRequired
+        case (402, "trial_expired"): return .trialExpired
+        case (403, "trial_email_unverified"): return .trialEmailUnverified
+        case (403, "license_invalid"): return .licenseInvalid
+        default: return .serverError(status)
+        }
     }
 
     // MARK: - Anthropic direct

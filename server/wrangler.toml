@@ -45,4 +45,5 @@ class_name = "QuotaLedger"
 [[migrations]]
 tag = "quota-ledger-v1"
 new_sqlite_classes = ["QuotaLedger"]
-# Set TRIAL_IDENTITY_SECRET with wrangler secret put (at least 32 random characters).
+# Configure TRIAL_OIDC_ISSUER and TRIAL_OIDC_CLIENT_ID for a native/public OIDC client.
+# The issuer must provide signed ID tokens with email_verified=true.

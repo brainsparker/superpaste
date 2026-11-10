@@ -79,6 +79,16 @@ final class HUDState: ObservableObject {
 
     // MARK: - Stage Transitions
 
+    func startCheckingAccount() {
+        cancelTasks()
+        isVisible = true
+        stage = .gathering
+        currentPhrase = "Checking your account…"
+        secondaryPhrase = nil
+        recoveryAction = nil
+        announce("Checking your SuperPaste account")
+    }
+
     func startGathering() {
         cancelTasks()
         isVisible = true

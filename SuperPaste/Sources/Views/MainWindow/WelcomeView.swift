@@ -116,11 +116,11 @@ struct WelcomeView: View {
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
 
-            Text("Two one-time permissions, then a practice paste")
+            Text("Two one-time permissions, account sign-in, then a practice paste")
                 .font(.caption)
                 .foregroundStyle(.tertiary)
 
-            Text("7-day free trial \u{00B7} no card required \u{00B7} $5/month after \u{2014} or free with your own API key")
+            Text("7-day trial with verified sign-in \u{00B7} no card required \u{00B7} $5/month after \u{2014} or free with your own API key")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }

@@ -1,5 +1,5 @@
 import { quotaNamespace } from "./quota-harness.ts";
-import { trialPrincipal } from "../src/quota.ts";
+import { authEnv, token, accountPrincipal, identityResponse } from "./auth-fixture.ts";
 import { PNG } from "./image-fixtures.ts";
 /**
  * End-to-end tests for Magic Copy.
@@ -31,8 +31,7 @@ function fakeKV(initial: Record<string, string> = {}) {
   };
 }
 
-const TEST_SECRET = "test-secret-at-least-32-characters-long";
-const PRINCIPAL = await trialPrincipal("192.0.2.1", TEST_SECRET);
+const PRINCIPAL = await accountPrincipal();
 
 const allowLimiter = { limit: async () => ({ success: true }) };
 
@@ -43,7 +42,7 @@ function env(overrides: Partial<Env> = {}): Env {
     POLAR_ORGANIZATION_ID: "org",
     SUPERPASTE_KV: fakeKV() as unknown as KVNamespace,
     QUOTA_LEDGER: quotaNamespace().namespace,
-    TRIAL_IDENTITY_SECRET: TEST_SECRET,
+    ...authEnv,
     IP_LIMITER: allowLimiter,
     VALIDATE_LIMITER: allowLimiter,
     ...overrides,
@@ -64,7 +63,7 @@ function fakeCtx() {
 async function callWorker(body: unknown, environment: Env = env(), deviceId = "device-1") {
   const request = new Request("https://api.superpaste.ai/v1/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "X-Device-ID": deviceId, "CF-Connecting-IP": "192.0.2.1" },
+    headers: { "Authorization": "Bearer " + token, "Content-Type": "application/json", "X-Device-ID": deviceId, "CF-Connecting-IP": "192.0.2.1" },
     body: JSON.stringify(body),
   });
   const { ctx, pending } = fakeCtx();
@@ -104,6 +103,8 @@ let captured: { system: string; user: string; maxTokens: number } | null = null;
 
 function stubAnthropic(text: string, options: { status?: number } = {}) {
   globalThis.fetch = (async (_url: string | URL | Request, init?: RequestInit) => {
+    const identity = identityResponse(_url);
+    if (identity) return identity;
     const parsed = JSON.parse(String(init?.body));
     captured = {
       system: parsed.system,
@@ -306,7 +307,7 @@ test("a successful Magic Copy consumes the user's daily quota", async () => {
   assert.equal(quota.store.get(`global:${day}`), 1);
 });
 
-test("Magic Copy is refused once the device's trial has expired", async () => {
+test("Magic Copy is refused once the account's trial has expired", async () => {
   stubAnthropic("A post. https://superpaste.ai/");
   const quota = quotaNamespace({ [`trial:${PRINCIPAL}`]: Date.now() - 30 * 86400_000 });
   const environment = env({ QUOTA_LEDGER: quota.namespace });

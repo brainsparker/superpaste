@@ -93,6 +93,7 @@ final class AppState: ObservableObject {
     // MARK: - HUD State
 
     let hudState = HUDState()
+    let trialAccount = TrialAccountService.shared
 
     // MARK: - Private
 
@@ -110,6 +111,7 @@ final class AppState: ObservableObject {
     var practiceFieldFocused = false
     private var expectedPracticeReply: String?
     private var practiceGeneration: Int?
+    private var pipelineAccountGeneration: Int?
 
     // MARK: - Initialization
 
@@ -118,6 +120,16 @@ final class AppState: ObservableObject {
         setupHotkeySubscription()
         setupPermissionObserver()
         setupWorkspaceObservers()
+        trialAccount.$isSigningIn.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] signingIn in
+            guard let self, signingIn, self.isProcessing, self.pipelineAccountGeneration != nil else { return }
+            self.cancelProcessing()
+        }.store(in: &cancellables)
+        trialAccount.$revision.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in
+            guard let self else { return }
+            if !self.trialAccount.hasSession && self.providerConfig.provider == .superpaste && !self.isLicensed && self.isProcessing { self.cancelProcessing() }
+            self.computeTrialDaysRemaining()
+            self.updateMainWindowState()
+        }.store(in: &cancellables)
         refreshCompetingInstances()
         updateState()
         computeTrialDaysRemaining()
@@ -271,7 +283,7 @@ final class AppState: ObservableObject {
             mainWindowState = .permissionRequired
         } else if !accessibilityEnabled {
             mainWindowState = .accessibilityRequired
-        } else if UserDefaults.standard.bool(forKey: "trialExpiredLocally") && !usingOwnAPIKey && !isLicensed {
+        } else if trialAccount.trialExpired && !usingOwnAPIKey && !isLicensed {
             mainWindowState = .trialExpired
         } else {
             mainWindowState = .ready
@@ -286,17 +298,7 @@ final class AppState: ObservableObject {
             trialDaysRemaining = nil
             return
         }
-        let trialStartKey = "trialStartDate"
-        if UserDefaults.standard.object(forKey: trialStartKey) == nil {
-            UserDefaults.standard.set(Date(), forKey: trialStartKey)
-        }
-        guard let start = UserDefaults.standard.object(forKey: trialStartKey) as? Date else {
-            trialDaysRemaining = 7
-            return
-        }
-        let elapsed = Date().timeIntervalSince(start)
-        let remaining = max(0, 7 - Int(elapsed / 86400))
-        trialDaysRemaining = remaining
+        trialDaysRemaining = trialAccount.daysRemaining
     }
 
     func dismissWelcome() {
@@ -337,6 +339,11 @@ final class AppState: ObservableObject {
             return
         }
 
+        if providerConfig.provider == .superpaste && !isLicensed && !trialAccount.hasSession {
+            hudState.showError(.provider(.trialSignInRequired))
+            return
+        }
+
         guard mainWindowState != .trialExpired else {
             hudState.showError(.provider(.trialExpired))
             return
@@ -357,6 +364,7 @@ final class AppState: ObservableObject {
             return
         }
         let generation = pipelineToken.advance()
+        pipelineAccountGeneration = providerConfig.provider == .superpaste && !isLicensed ? trialAccount.generation : nil
         isProcessing = true
         let clipboardCount = clipboardService.changeCount
         let isPractice = practiceFieldFocused && NSWorkspace.shared.frontmostApplication?.processIdentifier == getpid()
@@ -393,6 +401,17 @@ final class AppState: ObservableObject {
         guard isCurrent(generation) else { return }
         isProcessing = true
         lastError = nil
+        if providerConfig.provider == .superpaste && !isLicensed {
+            hudState.startCheckingAccount()
+            do { _ = try await trialAccount.authorizationHeader() }
+            catch {
+                guard isCurrent(generation) else { return }
+                hudState.showError(.provider(.trialSignInRequired))
+                finishPipeline(generation)
+                return
+            }
+            guard isCurrent(generation) else { return }
+        }
 
         // Magic Copy: a Smart Share campaign link on the clipboard means the
         // user wants a post written for wherever they are, not a reading of the
@@ -459,7 +478,6 @@ final class AppState: ObservableObject {
 
         } catch LLMService.LLMError.trialExpired {
             guard isCurrent(generation) else { return }
-            UserDefaults.standard.set(true, forKey: "trialExpiredLocally")
             updateMainWindowState()
             hudState.showError(.provider(.trialExpired))
 
@@ -516,7 +534,6 @@ final class AppState: ObservableObject {
 
         } catch LLMService.LLMError.trialExpired {
             guard isCurrent(generation) else { return }
-            UserDefaults.standard.set(true, forKey: "trialExpiredLocally")
             updateMainWindowState()
             hudState.showError(.provider(LLMService.LLMError.trialExpired))
 
@@ -537,6 +554,7 @@ final class AppState: ObservableObject {
     /// True while this pipeline run is still the active one.
     private func isCurrent(_ generation: Int) -> Bool {
         pipelineToken.accepts(generation) && !Task.isCancelled
+            && (pipelineAccountGeneration == nil || pipelineAccountGeneration == trialAccount.generation)
     }
 
     private func failPipeline(_ generation: Int, message: String) {
@@ -680,7 +698,6 @@ final class AppState: ObservableObject {
         Task {
             do {
                 try await LicenseService.shared.activate(trimmed)
-                UserDefaults.standard.removeObject(forKey: "trialExpiredLocally")
                 licenseActivationState = .success
                 computeTrialDaysRemaining()
                 updateMainWindowState()

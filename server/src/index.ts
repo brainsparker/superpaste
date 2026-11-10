@@ -16,7 +16,7 @@
 
 import { buildSystemPrompt, validatePasteRequest, textBlocksOnly, MAX_TEXT_FIELD_CHARS, type PasteRequest } from "./paste.ts";
 import { readJsonBody, RequestError } from "./request.ts";
-import { trialPrincipal } from "./quota.ts";
+import { publicTrialAuthConfig, verifiedTrialAccount, TrialAuthError, type TrialAuthEnv } from "./trial-auth.ts";
 export { QuotaLedger } from "./quota.ts";
 
 import { extractTokenFromLink } from "./smartshare/codec.ts";
@@ -30,14 +30,12 @@ interface RateLimiter {
   limit(options: { key: string }): Promise<{ success: boolean }>;
 }
 
-export interface Env extends SmartShareEnv {
+export interface Env extends SmartShareEnv, TrialAuthEnv {
   ANTHROPIC_API_KEY: string;
   POLAR_ACCESS_TOKEN: string;
   POLAR_ORGANIZATION_ID: string;
   SUPERPASTE_KV: KVNamespace;
   QUOTA_LEDGER: DurableObjectNamespace;
-  /** Stable secret for pseudonymous network trial identities; rotation resets trials. */
-  TRIAL_IDENTITY_SECRET?: string;
   /** Per-IP burst limiters (Cloudflare Rate Limiting API, configured in wrangler.toml). */
   IP_LIMITER: RateLimiter;
   VALIDATE_LIMITER: RateLimiter;
@@ -93,6 +91,13 @@ function json(body: unknown, status = 200): Response {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+// Account status responses must never be stored by HTTP caches.
+function authJson(body: unknown, status = 200): Response {
+  const response = json(body, status);
+  response.headers.set("Cache-Control", "no-store");
+  return response;
 }
 
 // --- Helper: SHA-256 hex, so raw license keys never become KV key names ---
@@ -177,6 +182,36 @@ async function validateLicense(key: string, env: Env, deadline: number): Promise
 async function handleRequest(request: Request, env: Env, deadline: number): Promise<Response> {
     const url = new URL(request.url);
     const clientIP = request.headers.get("CF-Connecting-IP") ?? "unknown";
+
+    if (url.pathname === "/v1/trial-auth/config" || url.pathname === "/v1/trial-auth/verify") {
+      const { success } = await env.VALIDATE_LIMITER.limit({ key: clientIP });
+      if (!success) return authJson({ error: "too_many_requests" }, 429);
+      try {
+        if (url.pathname.endsWith("/config") && request.method === "GET") {
+          return authJson(await publicTrialAuthConfig(env, url.searchParams.get("client") === "development", deadline));
+        }
+        if (url.pathname.endsWith("/verify") && request.method === "POST") {
+          const body = await readJsonBody(request, 4096, deadline);
+          if (!body || typeof body !== "object" || Array.isArray(body)) return authJson({ error: "bad_request" }, 400);
+          const nonce = (body as Record<string, unknown>).nonce;
+          if (nonce !== undefined && (typeof nonce !== "string" || nonce.length < 16 || nonce.length > 256)) return authJson({ error: "bad_request" }, 400);
+          const account = await verifiedTrialAccount(request, env, deadline, nonce as string | undefined);
+          if (!env.QUOTA_LEDGER) return authJson({ error: "trial_auth_unavailable" }, 503);
+          const status = await env.QUOTA_LEDGER.get(env.QUOTA_LEDGER.idFromName("trial-v1")).fetch("https://quota.internal/status", {
+            method: "POST", body: JSON.stringify({ principal: account.principal, tier: "trial", globalLimit: 300, operation: "status" }),
+            signal: AbortSignal.timeout(Math.max(1, deadline-Date.now())),
+          });
+          if (!status.ok) return authJson({ error: "trial_auth_unavailable" }, 503);
+          const details = await status.json() as { trial_expires_at: number | null };
+          return authJson({ verified: true, email: account.email, token_expires_at: account.tokenExpiresAt, trial_expires_at: details.trial_expires_at });
+        }
+        return authJson({ error: "method_not_allowed" }, 405);
+      } catch (error) {
+        if (error instanceof TrialAuthError) return authJson({ error: error.code, message: error.message }, error.status);
+        if (error instanceof RequestError) return authJson({ error: "bad_request", message: error.message }, error.status);
+        return authJson({ error: "trial_auth_unavailable", message: "Trial sign-in is unavailable. Try again later." }, 503);
+      }
+    }
 
     // --- Routes: /v1/smart-share/* ---
     // These non-generating routes have bounded request readers.
@@ -281,6 +316,7 @@ async function handleRequest(request: Request, env: Env, deadline: number): Prom
 
     // Gate: license key or trial. Global caps sit BEHIND auth and are split by
     // tier so unauthenticated floods (or trial abuse) can't starve paying users.
+    let trialExpiresAt: number | undefined;
     try {
       if (!env.QUOTA_LEDGER) return json({ error: "service_unavailable", message: "The service is temporarily unavailable." }, 503);
       let principal: string;
@@ -290,9 +326,9 @@ async function handleRequest(request: Request, env: Env, deadline: number): Prom
         tier = "licensed";
         principal = await sha256(licenseKey);
       } else {
-        if (clientIP === "unknown" || !env.TRIAL_IDENTITY_SECRET || env.TRIAL_IDENTITY_SECRET.length < 32) return json({ error: "trial_unavailable", message: "Trial identity is unavailable. Try again later." }, 503);
+        const account = await verifiedTrialAccount(request, env, deadline);
         tier = "trial";
-        principal = await trialPrincipal(clientIP, env.TRIAL_IDENTITY_SECRET);
+        principal = account.principal;
       }
       const configured = Number(tier === "trial" ? env.GLOBAL_TRIAL_DAILY_LIMIT : env.GLOBAL_LICENSED_DAILY_LIMIT);
       const globalLimit = Number.isSafeInteger(configured) && configured > 0 ? configured : (tier === "trial" ? DEFAULT_GLOBAL_TRIAL_DAILY_LIMIT : DEFAULT_GLOBAL_LICENSED_DAILY_LIMIT);
@@ -302,7 +338,10 @@ async function handleRequest(request: Request, env: Env, deadline: number): Prom
         method: "POST", body: JSON.stringify({ principal, tier, globalLimit }), signal: AbortSignal.timeout(Math.max(1, deadline-Date.now())),
       });
       if (!reservation.ok) return new Response(await reservation.text(), { status: reservation.status, headers: { "Content-Type": "application/json" } });
+      const details = await reservation.json() as { trial_expires_at?: number };
+      if (tier === "trial" && Number.isFinite(details.trial_expires_at)) trialExpiresAt = details.trial_expires_at;
     } catch (err: unknown) {
+      if (err instanceof TrialAuthError) return json({ error: err.code, message: err.message }, err.status);
       const e = err as { status?: number; error?: string; message?: string };
       return json({ error: e.error ?? "service_unavailable", message: e.message ?? "Couldn't reserve request capacity." }, e.status ?? 503);
     }
@@ -354,14 +393,21 @@ async function handleRequest(request: Request, env: Env, deadline: number): Prom
       // enforced here rather than reported. The response is rebuilt in
       // Anthropic's shape so the client parses it exactly as a normal paste.
       const finalized = finalizeShareResponse(rawResponseBody, shareCampaign, sharePlatform);
-      return finalized ?? json({ error: "upstream_error", message: "The writer returned an invalid post." }, 502);
+      return withTrialExpiration(finalized ?? json({ error: "upstream_error", message: "The writer returned an invalid post." }, 502), trialExpiresAt);
     }
 
     const responseBody = textBlocksOnly(rawResponseBody, anthropicResponse.ok);
-    return new Response(responseBody, {
+    return withTrialExpiration(new Response(responseBody, {
       status: anthropicResponse.status,
       headers: { "Content-Type": "application/json" },
-    });
+    }), trialExpiresAt);
+}
+
+function withTrialExpiration(response: Response, expiresAt: number | undefined): Response {
+  if (expiresAt === undefined) return response;
+  const headers = new Headers(response.headers);
+  headers.set("X-SuperPaste-Trial-Expires-At", String(expiresAt));
+  return new Response(response.body, { status: response.status, headers });
 }
 
 export default {

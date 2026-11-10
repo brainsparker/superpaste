@@ -4,7 +4,7 @@
 
 SuperPaste is a small native macOS app that captures only the active window when you hit a hotkey, asks the SuperPaste backend for the best response, and pastes it directly at your cursor. No app switching, no prompting, no preview step.
 
-It is fully open source under the MIT license. The hosted service is a **$5/month subscription** (cancel anytime) that covers Claude usage — up to **100 AI responses per day** — plus the signed/notarized DMG and in-app update checks. Anonymous trials last **7 days** from first use: no card required, with a shared allowance of 15 responses/day per public network. People behind the same public IP share the trial; changing device IDs does not reset it.
+It is fully open source under the MIT license. The hosted service is a **$5/month subscription** (cancel anytime) that covers Claude usage — up to **100 AI responses per day** — plus the signed/notarized DMG and in-app update checks. Trials require signing in with a **verified email account** and last **7 days** from the account's first request: no card required, with **15 responses/day per account** across devices and networks.
 
 **Don't want to subscribe? Bring your own API key** — Anthropic, OpenAI, or OpenRouter — and SuperPaste is genuinely free. It works in the paid build and in builds you compile from source, sending screenshots straight from your Mac to your chosen provider. No telemetry either way.
 
@@ -30,7 +30,7 @@ Want nothing to leave your Mac? Pick **Ollama (local)** or **LM Studio (local)**
 
 ### From the signed DMG
 
-Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. You start on the 7-day free trial (no card, 15 responses/day shared per public network); after that it's $5/month via Polar with 100 responses/day, cancel anytime. SuperPaste checks for signed updates automatically; a red dot appears in the menu bar and Settings when one is ready, and you can install it without leaving the app.
+Download the signed/notarized DMG and drag SuperPaste to Applications — macOS will let you launch it without any "unidentified developer" friction. Sign in with a verified email account for the 7-day free trial (no card, 15 responses/day per account); after that it's $5/month via Polar with 100 responses/day, cancel anytime. SuperPaste checks for signed updates automatically; a red dot appears in the menu bar and Settings when one is ready, and you can install it without leaving the app.
 
 → [Download SuperPaste.dmg](https://github.com/brainsparker/superpaste/releases/latest/download/SuperPaste.dmg)
 
@@ -168,9 +168,9 @@ The `/share` page a recipient lands on doesn't generate anything. It shows the c
 
 ### Why generation lives in the app
 
-Campaign generation happens **only** through `POST /v1/messages`, behind the device-id and trial/license gate the paste product already has. Magic Copy costs a user's daily quota exactly like any other paste.
+Campaign generation happens **only** through `POST /v1/messages`, behind the verified-account or license gate the paste product already has. Magic Copy costs a user's daily quota exactly like any other paste.
 
-An earlier draft of this feature exposed an anonymous `/v1/smart-share/generate` so a browser could generate. That was an open inference faucet: campaign creation is unauthenticated and `intent` is free text, so anyone could mint a campaign and generate against it without ever holding a license. Rate limits only slow that down. Moving generation into the app closes it, and needs no accounts, no sessions, and no new identity system.
+An earlier draft of this feature exposed an anonymous `/v1/smart-share/generate` so a browser could generate. That was an open inference faucet: campaign creation is unauthenticated and `intent` is free text, so anyone could mint a campaign and generate against it without ever holding a license. Rate limits only slow that down. Generation uses the same entitlement checks as a normal paste: a verified trial account or a validated paid license. Public campaign creation and link resolution never grant access to model generation.
 
 The three remaining `/v1/smart-share/*` routes — `platforms`, `campaigns`, `resolve` — never call a model. They validate a draft, encode a link, and decode one for display.
 
@@ -278,7 +278,20 @@ For substantial changes, please open an issue first so we can sort the design ou
 
 All generation requires the `QUOTA_LEDGER` SQLite-backed Durable Object binding and migration in `server/wrangler.toml`. Reservations atomically count a generation against its principal and tier-wide daily allowance **before** inference. Dispatched attempts remain charged on upstream errors/timeouts because a transport failure does not prove that no inference occurred. There is no automatic retry in this branch; coordinate the separate retry PR with this reservation boundary. A deliberate new hotkey request consumes a new reservation.
 
-Set a stable, random `TRIAL_IDENTITY_SECRET` of at least 32 characters with `wrangler secret put TRIAL_IDENTITY_SECRET` **before deploying** this change. Keep it stable: rotating it resets network trial identities. Missing storage or trial-identity configuration fails closed (503); it never falls back to the old resettable device-ID counters. Raw IPs are not written to quota storage: an HMAC establishes the network principal. Trial first-seen records persist to prevent resets; dated usage records are used only for access/cost limits. Licensed quotas are bound to the hash of the validated license, shared across devices. Shared-network anonymous trials are abuse controls, not proof of a unique person or device; a new network can represent a new anonymous principal.
+Hosted trials require an OpenID Connect provider configured as a **native/public client**, with authorization code + PKCE (S256), no client secret, signed RS256 or ES256 ID tokens, and a real verified-email claim. Configure `TRIAL_OIDC_ISSUER` (the exact HTTPS discovery issuer, including its trailing slash if present) and `TRIAL_OIDC_CLIENT_ID` as Worker variables before deploying. Register these exact callback URIs with the provider:
+
+- Release: `com.superpaste.app:/oauth/callback`
+- Development: `com.superpaste.app.dev:/oauth/callback`
+
+Enable `openid email` scopes and require email verification at the provider. The ID token must include `sub`, `iat`, `exp`, `email`, and boolean `email_verified: true`, with this native client as its audience. Discovery must publish HTTPS authorization, token, and JWKS endpoints. If the provider advertises `offline_access`, enable rotating refresh tokens for the native client; otherwise users sign in again when their ID token expires. Never add a client secret to the app. Use a dedicated client for SuperPaste, keep issuer/client IDs stable, and preserve subjects when migrating providers: changing an account's issuer or subject creates a new trial identity.
+
+The app fetches public configuration from `GET /v1/trial-auth/config`, opens the system authentication browser only on an explicit sign-in action, checks the callback state, exchanges the code with PKCE, and submits the ID token and nonce to `POST /v1/trial-auth/verify`. Credentials are saved in Keychain only after the Worker verifies the signature, issuer, audience, authorized party, expiry, nonce, and verified-email claim. Refresh happens before capture and never opens a browser from the hotkey. Trial status checks do not start the trial or spend quota. Paid licenses and direct/local providers do not require trial sign-in.
+
+Quota identity is a SHA-256 hash of the verified issuer and subject. Changing email, device ID, or public IP does not replenish that account's allowance; separate verified accounts on one network have separate trials. Public IP is used only for burst limits. Raw subjects, emails, and IPs are not written to quota storage. Trial first-use records persist to prevent resets; dated usage records enforce access/cost limits. Licensed quotas use the hash of the validated license, shared across devices. Missing storage or identity-provider configuration fails closed; there is no anonymous fallback. Verified accounts reduce abuse but do not guarantee one account per person. Provider-side signup protections should be enabled.
+
+Deploy the app and Worker as a coordinated update: older clients without account sign-in will receive a sign-in-required response for hosted trials. Existing device/network trial records cannot establish a verified account; its seven-day clock starts at its first account reservation.
+
+This repository does not provision an identity-provider tenant. Configure the issuer, public client, callback allowlist, verified-email policy, and refresh-token policy before deployment, then smoke-test a verified and an unverified account through the real browser. Unit and Worker-runtime tests use locally signed account fixtures and make no calls to a live identity provider.
 
 The 35-second Worker budget includes input parsing and license checks, and ends before the app's 45-second timeout. Positive license validations remain cached for up to one hour. Dependency failures cannot validate unknown keys. Image checks validate encoding, type headers, and pixel dimensions; the provider still validates compressed pixel data.
 
@@ -290,4 +303,4 @@ Endpoint settings now require **Connect** to commit an edited server address. Cu
 
 Public releases require a clean intended commit, a new marketing version, a strictly newer numeric build version, a Developer ID identity, and the `superpaste-notary` profile. `scripts/release.sh --preflight-only` validates prerequisites without building or publishing. `--skip-notarize` is allowed only with `--local`. Published assets are immutable.
 
-Release packaging builds both arm64 and x86_64, verifies all packaged Mach-O slices before signing, records the source commit in the bundle, and requires accepted notarization and staple validation before publishing. Local packaging remains available with `scripts/release.sh --local`. Run `python3 -m unittest discover -s scripts/tests -v` for the release-policy regression tests. Run `cd server && npm run test:quota-runtime` to exercise real SQLite reservations, last-slot concurrency, and persistence across a local runtime restart; it never calls a model or deploys a Worker.
+Release packaging builds both arm64 and x86_64, verifies all packaged Mach-O slices before signing, records the source commit in the bundle, and requires accepted notarization and staple validation before publishing. Local packaging remains available with `scripts/release.sh --local`. Run `python3 -m unittest discover -s scripts/tests -v` for the release-policy regression tests. Run `cd server && npm run test:quota-runtime` to exercise real SQLite reservations, last-slot concurrency, and persistence across a local runtime restart; it also verifies locally signed trial tokens through the real Worker with a stubbed identity provider and model. It never contacts a live model or deploys a Worker.

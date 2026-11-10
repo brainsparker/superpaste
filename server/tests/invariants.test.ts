@@ -2,34 +2,33 @@ import { test, expect, afterEach, vi } from "vitest";
 import worker, { type Env } from "../src/index.ts";
 import { validatePasteRequest } from "../src/paste.ts";
 import { readJsonBody, validImage } from "../src/request.ts";
-import { trialPrincipal } from "../src/quota.ts";
+import { authEnv, token, accountPrincipal, withIdentity } from "./auth-fixture.ts";
 import { quotaNamespace } from "./quota-harness.ts";
 import { PNG, JPEG, WEBP } from "./image-fixtures.ts";
 import { campaignFixture } from "./helpers.ts";
 import { finalizeShareCopy } from "../src/smartshare/prompt.ts";
 import { parseCampaignDraft } from "../src/smartshare/schema.ts";
-const secret="a-stable-test-secret-over-32-characters";
 const day=new Date().toISOString().slice(0,10);
 const realFetch=globalThis.fetch;
 afterEach(()=>{globalThis.fetch=realFetch;});
 function environment(quota=quotaNamespace(), overrides:Partial<Env>={}) {
   const store=new Map<string,string>();
   return { ANTHROPIC_API_KEY:"stub", POLAR_ACCESS_TOKEN:"stub", POLAR_ORGANIZATION_ID:"stub",
-    QUOTA_LEDGER:quota.namespace, TRIAL_IDENTITY_SECRET:secret,
+    QUOTA_LEDGER:quota.namespace, ...authEnv,
     SUPERPASTE_KV:{get:async(k:string)=>store.get(k)??null,put:async(k:string,v:string)=>{store.set(k,v);}} as unknown as KVNamespace,
     IP_LIMITER:{limit:async()=>({success:true})},VALIDATE_LIMITER:{limit:async()=>({success:true})},...overrides } as Env;
 }
 function call(env:Env,device="device",license?:string,body:unknown={image:{data:PNG,media_type:"image/png"}},path="/v1/messages") {
-  const headers:Record<string,string>={"Content-Type":"application/json","CF-Connecting-IP":"192.0.2.10","X-Device-ID":device};
+  const headers:Record<string,string>={"Authorization":"Bearer "+token,"Content-Type":"application/json","CF-Connecting-IP":"192.0.2.10","X-Device-ID":device};
   if(license)headers["X-License-Key"]=license;
   return worker.fetch(new Request("https://test.example"+path,{method:"POST",headers,body:JSON.stringify(body)}),env,{} as ExecutionContext);
 }
 const success=()=>new Response(JSON.stringify({content:[{type:"text",text:"hello"}],stop_reason:"end_turn"}));
 
 test("concurrent requests reserve only the last principal slot",async()=>{
-  const principal=await trialPrincipal("192.0.2.10",secret);
+  const principal=await accountPrincipal();
   const quota=quotaNamespace({[`usage:${day}:${principal}`]:14});
-  let calls=0;globalThis.fetch=async()=>{calls++;return success();};
+  let calls=0;globalThis.fetch=withIdentity(async()=>{calls++;return success();});
   const env=environment(quota);
   const results=await Promise.all(Array.from({length:10},(_,i)=>call(env,"rotated-"+i)));
   expect(results.filter(r=>r.status===200)).toHaveLength(1);
@@ -42,13 +41,13 @@ test("concurrent distinct principals reserve only the last global slot",async()=
   }))));
   expect(results.filter(r=>r.ok)).toHaveLength(1);expect(quota.store.get(`global:${day}`)).toBe(300);
 });
-test("rotating device IDs does not replenish network trials",async()=>{
-  globalThis.fetch=async()=>success();const env=environment();
+test("rotating device IDs does not replenish account trials",async()=>{
+  globalThis.fetch=withIdentity(async()=>success());const env=environment();
   for(let i=0;i<15;i++)expect((await call(env,"rotated-"+i)).status).toBe(200);
   expect((await call(env,"another-device")).status).toBe(429);
 });
 test("the same license shares quota across device IDs",async()=>{
-  globalThis.fetch=async()=>success();const env=environment(undefined,{OWNER_LICENSE_KEY:"owner"});
+  globalThis.fetch=withIdentity(async()=>success());const env=environment(undefined,{OWNER_LICENSE_KEY:"owner"});
   for(let i=0;i<100;i++)expect((await call(env,"rotated-"+i,"owner")).status).toBe(200);
   expect((await call(env,"new-device","owner")).status).toBe(429);
 });
@@ -57,11 +56,12 @@ test("unknown keys cannot obtain outage grace",async()=>{
   expect((await call(environment(),"d","unknown-key")).status).toBe(503);expect(inference).toBe(0);
 });
 test("a transport exception remains charged",async()=>{
-  const quota=quotaNamespace();globalThis.fetch=async()=>{throw new Error("timeout after dispatch");};
+  const quota=quotaNamespace();globalThis.fetch=withIdentity(async()=>{throw new Error("timeout after dispatch");});
   expect((await call(environment(quota))).status).toBe(502);expect(quota.store.get(`global:${day}`)).toBe(1);
 });
-test("trial expiry uses server network identity",async()=>{
-  const p=await trialPrincipal("192.0.2.10",secret);
+test("trial expiry uses the verified account identity",async()=>{
+  globalThis.fetch=withIdentity(async()=>success());
+  const p=await accountPrincipal();
   expect((await call(environment(quotaNamespace({[`trial:${p}`]:Date.now()-8*86400_000})),"new-device")).status).toBe(402);
 });
 test("malformed license shapes are controlled 400s",async()=>{

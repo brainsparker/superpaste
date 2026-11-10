@@ -154,17 +154,18 @@
     <ul>
       <li><strong>Device ID</strong> — a random UUID generated on your Mac for request attribution. It does not establish a trial entitlement and is not tied to your name, email, or Apple ID.</li>
       <li><strong>License key</strong> — sent with requests to validate an active subscription.</li>
-      <li><strong>IP address</strong> — used for burst limiting and to derive a keyed hash for anonymous trial enforcement. Raw IPs are not written to quota storage. People sharing a public IP share the trial and daily allowance. We retain the hashed trial start to prevent resets and dated counters to enforce access/cost limits.</li>
+      <li><strong>Trial account</strong> — hosted trials require signing in through an identity provider with a verified email. The provider handles sign-in and email verification. The app stores your email, ID token, and any refresh token in macOS Keychain. The server verifies the signed account token and returns trial status. Quota records contain a hash of the provider issuer and account subject, the first-use time, and dated usage counters; they do not contain your email, raw account subject, or tokens. The same account shares one trial across devices and networks. Provider account records are subject to that provider’s privacy policy.</li>
+      <li><strong>IP address</strong> — used for burst limiting. Raw IPs are not written to quota storage. Trial and daily allowances are enforced per verified account.</li>
     </ul>
 
     <h2>No analytics, no telemetry</h2>
-    <p>The app contains no analytics, telemetry, or crash reporting. It does not phone home in the background. Its only network activity is the generation request you trigger with the hotkey, subscription/trial validation, and checking GitHub releases for app updates when you ask it to.</p>
+    <p>The app contains no analytics, telemetry, or crash reporting. It does not phone home in the background. Its only network activity is the generation request you trigger with the hotkey, subscription/trial validation, account sign-in and token refresh when needed for hosted requests, and checking GitHub releases for app updates when you ask it to.</p>
 
     <h2>Payments</h2>
     <p>Subscriptions are handled by <a href="https://polar.sh">Polar</a>, our merchant of record. Polar sees your billing details (name, email, payment method); we never see your card number. Polar's own <a href="https://polar.sh/legal/privacy">privacy policy</a> applies to payment data.</p>
 
     <h2>Your rights</h2>
-    <p>If you are in the EU/EEA, UK, or another jurisdiction with data-protection law (such as the GDPR), you have the right to access, correct, delete, or export the personal data we hold about you, and to object to or restrict its processing. Because we hold almost nothing — request attribution, validated-license status, and pseudonymous trial/quota records — most requests are simple. Email us and we'll handle it.</p>
+    <p>If you are in the EU/EEA, UK, or another jurisdiction with data-protection law (such as the GDPR), you have the right to access, correct, delete, or export the personal data we hold about you, and to object to or restrict its processing. Because we hold almost nothing — request attribution, validated-license status, identity-provider account records, and pseudonymous trial/quota records — most requests are simple. Email us and we'll handle it.</p>
 
     <h2>Contact</h2>
     <p>Questions, requests, or concerns: <a href="mailto:superpaste@sparker.ai">superpaste@sparker.ai</a>.</p>
